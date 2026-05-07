@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { 
   MapPin, Clock, Flame, ChevronRight, AlertTriangle, 
   Award, Camera, User, Home, Navigation, Trash2,
