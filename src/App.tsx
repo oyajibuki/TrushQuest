@@ -23,7 +23,7 @@ export default function App() {
   const [captured, setCaptured] = useState(false)
 
   const auth = useAuth()
-  const { quests, updateQuestSettings } = useQuestSettings()
+  const { quests, updateQuestSettings, addQuest, deleteQuest } = useQuestSettings()
   const { weather, refetch: refetchWeather } = useWeather()
   const { events } = useEvents()
 
@@ -153,6 +153,8 @@ export default function App() {
             quests={quests}
             onBack={() => navigateTo('home')}
             onUpdateQuestSettings={updateQuestSettings}
+            onAddQuest={addQuest}
+            onDeleteQuest={deleteQuest}
           />
         )}
       </div>

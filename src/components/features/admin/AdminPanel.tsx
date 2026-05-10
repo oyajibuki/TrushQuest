@@ -11,16 +11,59 @@ interface Props {
   quests: Quest[]
   onBack: () => void
   onUpdateQuestSettings: (questId: number, settings: Record<string, string>) => Promise<boolean>
+  onAddQuest: (quest: NewQuestForm) => Promise<boolean>
+  onDeleteQuest: (questId: number) => Promise<boolean>
+}
+
+interface NewQuestForm {
+  title: string
+  location: string
+  city: string
+  duration: string
+  calories: number
+  difficulty: string
+  lat: number
+  lon: number
+  image: string
+  bag_pickup_name: string
+  bag_pickup_map_url: string
+  bag_pickup_image: string
+  dropoff_name: string
+  dropoff_map_url: string
+  dropoff_image: string
 }
 
 type Tab = 'quest' | 'weather' | 'users' | 'events'
 
+const EMPTY_NEW_QUEST: NewQuestForm = {
+  title: '', location: '', city: '', duration: '', calories: 0, difficulty: 'Easy',
+  lat: 0, lon: 0, image: '',
+  bag_pickup_name: '', bag_pickup_map_url: '', bag_pickup_image: '',
+  dropoff_name: '', dropoff_map_url: '', dropoff_image: '',
+}
+
 // --- Quest Settings Tab ---
-function QuestSettingsTab({ quests, onUpdate }: { quests: Quest[]; onUpdate: (id: number, s: Record<string, string>) => Promise<boolean> }) {
+function QuestSettingsTab({
+  quests,
+  onUpdate,
+  onAdd,
+  onDelete,
+}: {
+  quests: Quest[]
+  onUpdate: (id: number, s: Record<string, string>) => Promise<boolean>
+  onAdd: (q: NewQuestForm) => Promise<boolean>
+  onDelete: (id: number) => Promise<boolean>
+}) {
   const [expanded, setExpanded] = useState<number | null>(null)
   const [form, setForm] = useState<Record<number, Record<string, string>>>({})
   const [saving, setSaving] = useState<number | null>(null)
   const [saved, setSaved] = useState<number | null>(null)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [newQuest, setNewQuest] = useState<NewQuestForm>(EMPTY_NEW_QUEST)
+  const [adding, setAdding] = useState(false)
+  const [deleting, setDeleting] = useState<number | null>(null)
+
+  const DEFAULT_IDS = new Set([1, 2])
 
   const initForm = (quest: Quest) => {
     if (!form[quest.id]) {
@@ -57,20 +100,133 @@ function QuestSettingsTab({ quests, onUpdate }: { quests: Quest[]; onUpdate: (id
     }
   }
 
+  const handleAdd = async () => {
+    if (!newQuest.title || !newQuest.location) return
+    setAdding(true)
+    const ok = await onAdd(newQuest)
+    setAdding(false)
+    if (ok) {
+      setNewQuest(EMPTY_NEW_QUEST)
+      setShowAddForm(false)
+    }
+  }
+
+  const handleDelete = async (questId: number) => {
+    if (!confirm(`「${quests.find(q => q.id === questId)?.title}」を削除しますか？`)) return
+    setDeleting(questId)
+    await onDelete(questId)
+    setDeleting(null)
+  }
+
+  const setNQ = (key: keyof NewQuestForm, value: string | number) =>
+    setNewQuest(prev => ({ ...prev, [key]: value }))
+
   return (
     <div className="space-y-4">
-      <p className="text-xs text-slate-500 mb-4">ゴミ袋の受取場所・集積所をマスタとして変更できます。</p>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs text-slate-500">ゴミ袋の受取場所・集積所を管理できます。</p>
+        <button
+          onClick={() => setShowAddForm(v => !v)}
+          className="flex items-center gap-1 px-3 py-1.5 bg-cyan-500 text-white rounded-xl text-xs font-bold"
+        >
+          <Plus size={14} /> クエスト追加
+        </button>
+      </div>
+
+      {showAddForm && (
+        <div className="bg-white rounded-2xl border border-cyan-200 shadow-sm p-4 space-y-3">
+          <p className="text-sm font-bold text-slate-700">新しいクエストを追加</p>
+
+          <Section label="基本情報">
+            <Field label="タイトル *" value={newQuest.title} onChange={v => setNQ('title', v)} placeholder="例: 鎌倉海岸ビーチクリーン" />
+            <Field label="場所 (都道府県 市区町村)" value={newQuest.location} onChange={v => setNQ('location', v)} placeholder="例: 神奈川県 鎌倉市" />
+            <Field label="市区町村" value={newQuest.city} onChange={v => setNQ('city', v)} placeholder="例: 鎌倉市" />
+            <div className="flex gap-2">
+              <Field label="所要時間" value={newQuest.duration} onChange={v => setNQ('duration', v)} placeholder="例: 45分" />
+              <div className="flex-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">カロリー</label>
+                <input type="number" className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  placeholder="例: 220" value={newQuest.calories || ''}
+                  onChange={e => setNQ('calories', Number(e.target.value))} />
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-500 uppercase">難易度</label>
+              <select className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                value={newQuest.difficulty} onChange={e => setNQ('difficulty', e.target.value)}>
+                <option value="Easy">Easy</option>
+                <option value="Medium">Medium</option>
+                <option value="Hard">Hard</option>
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">緯度</label>
+                <input type="number" step="0.0001" className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  placeholder="例: 35.3286" value={newQuest.lat || ''}
+                  onChange={e => setNQ('lat', Number(e.target.value))} />
+              </div>
+              <div className="flex-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">経度</label>
+                <input type="number" step="0.0001" className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  placeholder="例: 139.3495" value={newQuest.lon || ''}
+                  onChange={e => setNQ('lon', Number(e.target.value))} />
+              </div>
+            </div>
+            <Field label="クエスト画像URL" value={newQuest.image} onChange={v => setNQ('image', v)} placeholder="https://..." />
+          </Section>
+
+          <Section label="袋受取場所">
+            <Field label="場所名 *" value={newQuest.bag_pickup_name} onChange={v => setNQ('bag_pickup_name', v)} placeholder="例: 管理棟前 ボックス" />
+            <Field label="GoogleマップURL" value={newQuest.bag_pickup_map_url} onChange={v => setNQ('bag_pickup_map_url', v)} placeholder="https://maps.google.com/..." />
+            <Field label="写真URL" value={newQuest.bag_pickup_image} onChange={v => setNQ('bag_pickup_image', v)} placeholder="https://..." />
+          </Section>
+
+          <Section label="ゴミ集積所">
+            <Field label="場所名 *" value={newQuest.dropoff_name} onChange={v => setNQ('dropoff_name', v)} placeholder="例: 南側 指定集積所" />
+            <Field label="GoogleマップURL" value={newQuest.dropoff_map_url} onChange={v => setNQ('dropoff_map_url', v)} placeholder="https://maps.google.com/..." />
+            <Field label="写真URL" value={newQuest.dropoff_image} onChange={v => setNQ('dropoff_image', v)} placeholder="https://..." />
+          </Section>
+
+          <div className="flex gap-2">
+            <button onClick={() => { setShowAddForm(false); setNewQuest(EMPTY_NEW_QUEST) }}
+              className="flex-1 py-2.5 bg-slate-100 text-slate-600 rounded-xl font-bold text-sm">
+              キャンセル
+            </button>
+            <button onClick={handleAdd} disabled={adding || !newQuest.title || !newQuest.location}
+              className="flex-1 py-2.5 bg-cyan-500 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+              {adding ? <RefreshCw size={16} className="animate-spin" /> : <Plus size={16} />}
+              {adding ? '追加中...' : '追加'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {quests.map(quest => (
         <div key={quest.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <button
             className="w-full flex items-center justify-between p-4 text-left"
             onClick={() => handleExpand(quest)}
           >
-            <div className="flex items-center">
-              <MapPin size={16} className="text-cyan-500 mr-2" />
-              <span className="font-bold text-sm text-slate-800">{quest.title}</span>
+            <div className="flex items-center min-w-0">
+              <MapPin size={16} className="text-cyan-500 mr-2 shrink-0" />
+              <span className="font-bold text-sm text-slate-800 truncate">{quest.title}</span>
+              {!DEFAULT_IDS.has(quest.id) && (
+                <span className="ml-2 shrink-0 text-[9px] bg-cyan-100 text-cyan-600 px-1.5 py-0.5 rounded-full font-bold">追加</span>
+              )}
             </div>
-            <ChevronRight size={18} className={`text-slate-400 transition-transform ${expanded === quest.id ? 'rotate-90' : ''}`} />
+            <div className="flex items-center gap-1 shrink-0 ml-2">
+              {!DEFAULT_IDS.has(quest.id) && (
+                <button
+                  onClick={e => { e.stopPropagation(); handleDelete(quest.id) }}
+                  disabled={deleting === quest.id}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                >
+                  {deleting === quest.id ? <RefreshCw size={14} className="animate-spin" /> : <X size={14} />}
+                </button>
+              )}
+              <ChevronRight size={18} className={`text-slate-400 transition-transform ${expanded === quest.id ? 'rotate-90' : ''}`} />
+            </div>
           </button>
 
           {expanded === quest.id && form[quest.id] && (
@@ -117,18 +273,43 @@ function QuestSettingsTab({ quests, onUpdate }: { quests: Quest[]; onUpdate: (id
                   onChange={e => setForm(prev => ({ ...prev, [quest.id]: { ...prev[quest.id], dropoff_image: e.target.value } }))}
                 />
               </div>
-              <button
-                onClick={() => handleSave(quest.id)}
-                disabled={saving === quest.id}
-                className="w-full py-3 bg-cyan-500 text-white rounded-xl font-bold text-sm flex items-center justify-center disabled:opacity-60"
-              >
-                {saving === quest.id ? <RefreshCw size={16} className="animate-spin mr-2" /> : saved === quest.id ? <CheckCircle2 size={16} className="mr-2" /> : <Save size={16} className="mr-2" />}
-                {saving === quest.id ? '保存中...' : saved === quest.id ? '保存しました！' : '変更を保存'}
-              </button>
+              {DEFAULT_IDS.has(quest.id) && (
+                <button
+                  onClick={() => handleSave(quest.id)}
+                  disabled={saving === quest.id}
+                  className="w-full py-3 bg-cyan-500 text-white rounded-xl font-bold text-sm flex items-center justify-center disabled:opacity-60"
+                >
+                  {saving === quest.id ? <RefreshCw size={16} className="animate-spin mr-2" /> : saved === quest.id ? <CheckCircle2 size={16} className="mr-2" /> : <Save size={16} className="mr-2" />}
+                  {saving === quest.id ? '保存中...' : saved === quest.id ? '保存しました！' : '変更を保存'}
+                </button>
+              )}
             </div>
           )}
         </div>
       ))}
+    </div>
+  )
+}
+
+function Section({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">{label}</p>
+      <div className="space-y-2">{children}</div>
+    </div>
+  )
+}
+
+function Field({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
+  return (
+    <div>
+      <label className="text-[10px] font-bold text-slate-500 uppercase">{label}</label>
+      <input
+        className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+        placeholder={placeholder}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+      />
     </div>
   )
 }
@@ -425,7 +606,7 @@ function EventsTab() {
 }
 
 // --- Main AdminPanel ---
-export default function AdminPanel({ quests, onBack, onUpdateQuestSettings }: Props) {
+export default function AdminPanel({ quests, onBack, onUpdateQuestSettings, onAddQuest, onDeleteQuest }: Props) {
   const [tab, setTab] = useState<Tab>('quest')
 
   const tabs: { key: Tab; label: string; icon: ReactNode }[] = [
@@ -468,7 +649,7 @@ export default function AdminPanel({ quests, onBack, onUpdateQuestSettings }: Pr
             ⚠️ Supabaseが設定されていません。.env.localを設定してください。
           </div>
         )}
-        {tab === 'quest' && <QuestSettingsTab quests={quests} onUpdate={onUpdateQuestSettings} />}
+        {tab === 'quest' && <QuestSettingsTab quests={quests} onUpdate={onUpdateQuestSettings} onAdd={onAddQuest} onDelete={onDeleteQuest} />}
         {tab === 'weather' && <WeatherTab />}
         {tab === 'events' && <EventsTab />}
         {tab === 'users' && <UsersTab />}

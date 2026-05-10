@@ -52,6 +52,53 @@ export const DEFAULT_QUESTS: Quest[] = [
   },
 ]
 
+export const DEFAULT_QUEST_IDS = new Set(DEFAULT_QUESTS.map(q => q.id))
+
+interface DbQuestRow {
+  id: number
+  title: string
+  location: string
+  city: string
+  duration: string
+  calories: number
+  difficulty: string
+  lat: number
+  lon: number
+  image: string
+  bag_pickup_name: string
+  bag_pickup_map_url: string
+  bag_pickup_image: string
+  dropoff_name: string
+  dropoff_map_url: string
+  dropoff_image: string
+  is_active: boolean
+}
+
+function mapDbRow(row: DbQuestRow): Quest {
+  return {
+    id: row.id,
+    title: row.title,
+    location: row.location,
+    city: row.city,
+    duration: row.duration,
+    calories: row.calories,
+    difficulty: row.difficulty,
+    lat: row.lat,
+    lon: row.lon,
+    image: row.image,
+    bagPickup: {
+      name: row.bag_pickup_name,
+      image: row.bag_pickup_image,
+      mapUrl: row.bag_pickup_map_url,
+    },
+    dropoff: {
+      name: row.dropoff_name,
+      image: row.dropoff_image,
+      mapUrl: row.dropoff_map_url,
+    },
+  }
+}
+
 export function useQuestSettings() {
   const [quests, setQuests] = useState<Quest[]>(DEFAULT_QUESTS)
   const [loading, setLoading] = useState(false)
@@ -60,28 +107,34 @@ export function useQuestSettings() {
     if (!isSupabaseConfigured) return
     setLoading(true)
     try {
-      const { data } = await supabase.from('quest_settings').select('*')
-      if (data && data.length > 0) {
-        setQuests(prev =>
-          prev.map(quest => {
-            const s = data.find((row: QuestSettingsRow) => row.quest_id === quest.id)
-            if (!s) return quest
-            return {
-              ...quest,
-              bagPickup: {
-                name: s.bag_pickup_name || quest.bagPickup.name,
-                image: s.bag_pickup_image || quest.bagPickup.image,
-                mapUrl: s.bag_pickup_map_url || quest.bagPickup.mapUrl,
-              },
-              dropoff: {
-                name: s.dropoff_name || quest.dropoff.name,
-                image: s.dropoff_image || quest.dropoff.image,
-                mapUrl: s.dropoff_map_url || quest.dropoff.mapUrl,
-              },
-            }
-          })
-        )
-      }
+      const [settingsRes, dbQuestsRes] = await Promise.all([
+        supabase.from('quest_settings').select('*'),
+        supabase.from('quests').select('*').eq('is_active', true).order('id', { ascending: true }),
+      ])
+
+      const settings: QuestSettingsRow[] = settingsRes.data || []
+      const dbRows: DbQuestRow[] = dbQuestsRes.data || []
+
+      const updatedDefaults = DEFAULT_QUESTS.map(quest => {
+        const s = settings.find(row => row.quest_id === quest.id)
+        if (!s) return quest
+        return {
+          ...quest,
+          bagPickup: {
+            name: s.bag_pickup_name || quest.bagPickup.name,
+            image: s.bag_pickup_image || quest.bagPickup.image,
+            mapUrl: s.bag_pickup_map_url || quest.bagPickup.mapUrl,
+          },
+          dropoff: {
+            name: s.dropoff_name || quest.dropoff.name,
+            image: s.dropoff_image || quest.dropoff.image,
+            mapUrl: s.dropoff_map_url || quest.dropoff.mapUrl,
+          },
+        }
+      })
+
+      const dbQuestObjects = dbRows.map(mapDbRow)
+      setQuests([...updatedDefaults, ...dbQuestObjects])
     } catch {
       // DBエラー時はデフォルト値を使う
     } finally {
@@ -102,5 +155,19 @@ export function useQuestSettings() {
     return !error
   }
 
-  return { quests, loading, updateQuestSettings, refetch: fetchSettings }
+  const addQuest = async (quest: Omit<DbQuestRow, 'id' | 'is_active'>): Promise<boolean> => {
+    if (!isSupabaseConfigured) return false
+    const { error } = await supabase.from('quests').insert({ ...quest, is_active: true })
+    if (!error) await fetchSettings()
+    return !error
+  }
+
+  const deleteQuest = async (questId: number): Promise<boolean> => {
+    if (!isSupabaseConfigured || DEFAULT_QUEST_IDS.has(questId)) return false
+    const { error } = await supabase.from('quests').delete().eq('id', questId)
+    if (!error) await fetchSettings()
+    return !error
+  }
+
+  return { quests, loading, updateQuestSettings, addQuest, deleteQuest, refetch: fetchSettings }
 }
