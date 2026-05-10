@@ -13,6 +13,9 @@ export interface Badge {
   date: string
   questId?: number
   calories?: number
+  completedAt?: string  // ISO timestamp
+  location?: string
+  duration?: string
 }
 
 export interface UserStats {

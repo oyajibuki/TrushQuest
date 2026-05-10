@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWeather } from '@/hooks/useWeather'
 import { useQuestSettings } from '@/hooks/useQuestSettings'
@@ -20,11 +20,17 @@ export default function App() {
   const [agreed, setAgreed] = useState(false)
   const [tasks, setTasks] = useState({ pickup: false, active: false, dropoff: false })
   const [captured, setCaptured] = useState(false)
-  const [showShareMsg, setShowShareMsg] = useState(false)
 
   const auth = useAuth()
   const { quests, updateQuestSettings } = useQuestSettings()
   const { weather, refetch: refetchWeather } = useWeather()
+
+  // OAuth リダイレクト後: ログイン済みなのに 'login' ビューのままになる問題を修正
+  useEffect(() => {
+    if (auth.isLoggedIn && !auth.loading && currentView === 'login') {
+      setCurrentView('home')
+    }
+  }, [auth.isLoggedIn, auth.loading, currentView])
 
   const navigateTo = (view: View, quest?: Quest) => {
     if (quest) setSelectedQuest(quest)
@@ -32,7 +38,6 @@ export default function App() {
     if (view === 'detail') setAgreed(false)
     if (view === 'active') setTasks({ pickup: false, active: false, dropoff: false })
     if (view === 'camera') setCaptured(false)
-    if (view === 'reward') setShowShareMsg(false)
     window.scrollTo(0, 0)
   }
 
@@ -101,7 +106,7 @@ export default function App() {
             onCapture={() => {
               setCaptured(true)
               setTimeout(async () => {
-                await auth.addCompletion(selectedQuest.id, selectedQuest.title, selectedQuest.calories)
+                await auth.addCompletion(selectedQuest.id, selectedQuest.title, selectedQuest.calories, selectedQuest.location, selectedQuest.duration)
                 navigateTo('reward')
               }, 1500)
             }}
@@ -111,8 +116,6 @@ export default function App() {
         {currentView === 'reward' && selectedQuest && (
           <QuestReward
             quest={selectedQuest}
-            showShareMsg={showShareMsg}
-            onShare={() => { setShowShareMsg(true); setTimeout(() => setShowShareMsg(false), 3000) }}
             onHome={() => navigateTo('home')}
           />
         )}

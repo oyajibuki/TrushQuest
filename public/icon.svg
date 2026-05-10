@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 背景 -->
+  <rect width="512" height="512" rx="96" fill="#06b6d4"/>
+  <!-- 波 (下) -->
+  <path d="M0 360 Q80 310 160 350 Q240 390 320 345 Q400 300 512 350 L512 512 L0 512 Z" fill="#0891b2" opacity="0.7"/>
+  <path d="M0 400 Q100 360 200 395 Q300 430 400 390 Q460 370 512 390 L512 512 L0 512 Z" fill="#0e7490" opacity="0.5"/>
+  <!-- ゴミ袋 -->
+  <!-- 持ち手 -->
+  <rect x="222" y="108" width="68" height="32" rx="12" fill="white" opacity="0.95"/>
+  <!-- 袋の上部 -->
+  <rect x="178" y="130" width="156" height="28" rx="8" fill="white"/>
+  <!-- 袋本体 -->
+  <path d="M190 158 L178 330 Q178 360 210 360 L302 360 Q334 360 334 330 L322 158 Z" fill="white" opacity="0.95"/>
+  <!-- 袋の縦ライン -->
+  <line x1="234" y1="178" x2="226" y2="342" stroke="#06b6d4" stroke-width="7" stroke-linecap="round" opacity="0.35"/>
+  <line x1="256" y1="178" x2="256" y2="342" stroke="#06b6d4" stroke-width="7" stroke-linecap="round" opacity="0.35"/>
+  <line x1="278" y1="178" x2="286" y2="342" stroke="#06b6d4" stroke-width="7" stroke-linecap="round" opacity="0.35"/>
+  <!-- 星 (クエスト感) -->
+  <circle cx="400" cy="130" r="22" fill="white" opacity="0.25"/>
+  <circle cx="400" cy="130" r="14" fill="#fde68a" opacity="0.9"/>
+  <circle cx="120" cy="160" r="14" fill="white" opacity="0.2"/>
+</svg>

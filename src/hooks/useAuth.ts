@@ -48,6 +48,12 @@ export function useAuth() {
       }
 
       if (profile) {
+        // オーナーのメールアドレスは常に管理者 (DB が未設定の場合も自動修正)
+        const isOwner = u.email === 'oyajibuki@gmail.com'
+        if (isOwner && !profile.is_admin) {
+          await supabase.from('profiles').update({ is_admin: true }).eq('id', u.id)
+          profile = { ...profile, is_admin: true }
+        }
         setUserProfile({
           id: profile.id,
           name: profile.nickname || (u.user_metadata?.name as string | undefined) || 'ユーザー',
@@ -56,7 +62,7 @@ export function useAuth() {
           avatarUrl: profile.avatar_url || (u.user_metadata?.avatar_url as string | undefined),
           isAdmin: profile.is_admin,
         })
-        setIsAdmin(profile.is_admin || false)
+        setIsAdmin(profile.is_admin || isOwner)
       }
 
       const { data: completions } = await supabase
@@ -66,12 +72,15 @@ export function useAuth() {
         .order('completed_at', { ascending: false })
 
       if (completions) {
-        const badges: Badge[] = completions.map((c: { id: string; quest_title: string; completed_at: string; quest_id: number; calories: number }) => ({
+        const badges: Badge[] = completions.map((c: { id: string; quest_title: string; completed_at: string; quest_id: number; calories: number; location?: string; duration?: string }) => ({
           id: c.id,
           name: c.quest_title,
           date: new Date(c.completed_at).toLocaleDateString('ja-JP'),
           questId: c.quest_id,
           calories: c.calories,
+          completedAt: c.completed_at,
+          location: c.location,
+          duration: c.duration,
         }))
         setUserStats({
           badges,
@@ -148,13 +157,17 @@ export function useAuth() {
     setUserStats(DEFAULT_STATS)
   }
 
-  const addCompletion = async (questId: number, questTitle: string, calories: number) => {
+  const addCompletion = async (questId: number, questTitle: string, calories: number, location?: string, duration?: string) => {
+    const now = new Date()
     const newBadge: Badge = {
       id: Date.now(),
       name: questTitle,
-      date: new Date().toLocaleDateString('ja-JP'),
+      date: now.toLocaleDateString('ja-JP'),
       questId,
       calories,
+      completedAt: now.toISOString(),
+      location,
+      duration,
     }
     setUserStats(prev => ({
       badges: [newBadge, ...prev.badges],
@@ -168,6 +181,8 @@ export function useAuth() {
         quest_id: questId,
         quest_title: questTitle,
         calories,
+        location,
+        duration,
       })
     }
   }
