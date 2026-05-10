@@ -37,6 +37,26 @@ function getTimeRange(completedAt?: string, duration?: string): string {
   return `${fmt(start)} 〜 ${fmt(end)}`
 }
 
+const LEVELS = [
+  { min: 0,  level: 1,  title: '砂浜の新人',        next: 1  },
+  { min: 1,  level: 2,  title: 'ビーチウォーカー',    next: 3  },
+  { min: 3,  level: 3,  title: '清掃ビギナー',        next: 5  },
+  { min: 5,  level: 4,  title: '海のパトローラー',    next: 8  },
+  { min: 8,  level: 5,  title: 'ビーチコーマー',      next: 12 },
+  { min: 12, level: 6,  title: '湘南クリーナー',      next: 18 },
+  { min: 18, level: 7,  title: '海の守護者',          next: 25 },
+  { min: 25, level: 8,  title: '環境アクティビスト',  next: 35 },
+  { min: 35, level: 9,  title: '海の伝説',            next: 50 },
+  { min: 50, level: 10, title: '地球の守護神',        next: null },
+]
+
+function getLevelInfo(questCount: number) {
+  for (let i = LEVELS.length - 1; i >= 0; i--) {
+    if (questCount >= LEVELS[i].min) return LEVELS[i]
+  }
+  return LEVELS[0]
+}
+
 function CertModal({ badge, onClose }: { badge: Badge; onClose: () => void }) {
   const hash = generateCertHash(badge.id, badge.questId, badge.completedAt)
   const timeRange = getTimeRange(badge.completedAt, badge.duration)
@@ -130,7 +150,7 @@ export default function ProfileScreen({ userProfile, userStats, isGuest, onEdit,
   const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null)
   const [badgesOpen, setBadgesOpen] = useState(false)
 
-  const level = userStats.totalQuests > 0 ? Math.floor(userStats.totalQuests / 2) + 1 : 1
+  const levelInfo = getLevelInfo(userStats.totalQuests)
 
   const today = new Date()
   const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).getDay()
@@ -164,7 +184,14 @@ export default function ProfileScreen({ userProfile, userStats, isGuest, onEdit,
           <div className="flex-1">
             <h2 className="text-xl font-black text-slate-800 break-words line-clamp-2">{userProfile.name}</h2>
             <div className="flex items-center mt-1 flex-wrap gap-1">
-              <p className="text-[10px] text-cyan-600 font-bold bg-cyan-50 px-2 py-1 rounded-md">Lv. {level}</p>
+              <p className="text-[10px] text-cyan-600 font-bold bg-cyan-50 px-2 py-1 rounded-md">
+                Lv.{levelInfo.level} {levelInfo.title}
+              </p>
+              {levelInfo.next && (
+                <p className="text-[9px] text-slate-400">
+                  次まであと{levelInfo.next - userStats.totalQuests}回
+                </p>
+              )}
               {!isGuest && (
                 <span className="flex items-center text-[9px] text-green-600 bg-green-50 px-2 py-1 rounded-md border border-green-100">
                   <Cloud size={10} className="mr-1" /> クラウド保存ON

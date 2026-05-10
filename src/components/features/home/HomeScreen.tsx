@@ -1,12 +1,51 @@
-import { MapPin, Clock, Flame, ChevronRight, Sun, Wind, Cloud, AlertOctagon, RefreshCw } from 'lucide-react'
-import type { Quest, UserStats, WeatherState } from '@/types'
+import { MapPin, Clock, Flame, ChevronRight, Sun, Wind, Cloud, AlertOctagon, RefreshCw, CalendarDays } from 'lucide-react'
+import type { Quest, UserStats, WeatherState, AppEvent } from '@/types'
 
 interface Props {
   quests: Quest[]
   weather: WeatherState
   userStats: UserStats
+  events: AppEvent[]
   onQuestSelect: (quest: Quest) => void
   onWeatherRefresh: () => void
+}
+
+function EventsBanner({ events }: { events: AppEvent[] }) {
+  if (events.length === 0) return null
+  const today = new Date().toISOString().split('T')[0]
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
+
+  return (
+    <div className="mb-4 space-y-2">
+      {events.map(ev => {
+        const isToday = ev.event_date === today
+        const isTomorrow = ev.event_date === tomorrow
+        const badge = isToday ? { label: '本日開催', cls: 'bg-red-500' }
+          : isTomorrow ? { label: '明日開催', cls: 'bg-orange-400' }
+          : null
+        return (
+          <div key={ev.id} className="bg-white/20 border border-white/30 rounded-2xl p-3 backdrop-blur-sm">
+            <div className="flex items-start gap-2">
+              <CalendarDays size={16} className="text-white mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-bold text-white">{ev.title}</p>
+                  {badge && (
+                    <span className={`text-[10px] font-bold text-white px-2 py-0.5 rounded-full ${badge.cls}`}>
+                      {badge.label}
+                    </span>
+                  )}
+                </div>
+                {ev.location && <p className="text-[10px] text-blue-100 mt-0.5">{ev.location}</p>}
+                {ev.description && <p className="text-[10px] text-white/70 mt-0.5">{ev.description}</p>}
+                <p className="text-[10px] text-blue-100/60 mt-1">{ev.event_date}</p>
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 function WeatherBanner({ weather, onRefresh }: { weather: WeatherState; onRefresh: () => void }) {
@@ -63,7 +102,7 @@ function WeatherBanner({ weather, onRefresh }: { weather: WeatherState; onRefres
   )
 }
 
-export default function HomeScreen({ quests, weather, userStats, onQuestSelect, onWeatherRefresh }: Props) {
+export default function HomeScreen({ quests, weather, userStats, events, onQuestSelect, onWeatherRefresh }: Props) {
   const isCancelled = weather.status === 'rain' || weather.status === 'typhoon'
 
   return (
@@ -75,6 +114,7 @@ export default function HomeScreen({ quests, weather, userStats, onQuestSelect, 
         <p className="text-blue-50 text-sm font-medium mb-4">地球を綺麗にしながら、自分も健康に。</p>
 
         <WeatherBanner weather={weather} onRefresh={onWeatherRefresh} />
+        <EventsBanner events={events} />
 
         <div className="flex justify-between items-center bg-white/10 p-4 rounded-2xl backdrop-blur-md border border-white/20">
           <div>

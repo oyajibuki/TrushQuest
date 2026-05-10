@@ -82,6 +82,15 @@ export interface AdminProfile {
   created_at: string
 }
 
+export interface AppEvent {
+  id: string
+  title: string
+  description?: string
+  event_date: string
+  location?: string
+  created_at?: string
+}
+
 export type View =
   | 'login'
   | 'home'

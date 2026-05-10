@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import {
   ChevronRight, Shield, MapPin, Cloud, Users,
-  Save, X, CheckCircle2, AlertOctagon, Sun, RefreshCw
+  Save, X, CheckCircle2, AlertOctagon, Sun, RefreshCw, CalendarDays, Plus
 } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
-import type { Quest, WeatherOverride, AdminProfile } from '@/types'
+import type { Quest, WeatherOverride, AdminProfile, AppEvent } from '@/types'
 
 interface Props {
   quests: Quest[]
@@ -13,7 +13,7 @@ interface Props {
   onUpdateQuestSettings: (questId: number, settings: Record<string, string>) => Promise<boolean>
 }
 
-type Tab = 'quest' | 'weather' | 'users'
+type Tab = 'quest' | 'weather' | 'users' | 'events'
 
 // --- Quest Settings Tab ---
 function QuestSettingsTab({ quests, onUpdate }: { quests: Quest[]; onUpdate: (id: number, s: Record<string, string>) => Promise<boolean> }) {
@@ -330,6 +330,100 @@ function UsersTab() {
   )
 }
 
+// --- Events Tab ---
+function EventsTab() {
+  const [events, setEvents] = useState<AppEvent[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({ title: '', event_date: new Date().toISOString().split('T')[0], location: '', description: '' })
+
+  const loadEvents = async () => {
+    if (!isSupabaseConfigured) return
+    const today = new Date().toISOString().split('T')[0]
+    const { data } = await supabase.from('events').select('*').gte('event_date', today).order('event_date')
+    setEvents(data || [])
+    setLoading(false)
+  }
+
+  useEffect(() => { loadEvents() }, [])
+
+  const handleAdd = async () => {
+    if (!form.title || !form.event_date || !isSupabaseConfigured) return
+    setSaving(true)
+    await supabase.from('events').insert({ title: form.title, event_date: form.event_date, location: form.location || null, description: form.description || null })
+    setForm(prev => ({ ...prev, title: '', location: '', description: '' }))
+    await loadEvents()
+    setSaving(false)
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!isSupabaseConfigured) return
+    await supabase.from('events').delete().eq('id', id)
+    await loadEvents()
+  }
+
+  return (
+    <div>
+      <p className="text-xs text-slate-500 mb-4">ホーム画面に表示するイベント情報を登録できます。</p>
+
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 mb-4 space-y-3">
+        <p className="text-sm font-bold text-slate-700">イベントを追加</p>
+        <div>
+          <label className="text-[10px] font-bold text-slate-500 uppercase">タイトル *</label>
+          <input className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            placeholder="例: 湘南ビーチクリーン大会" value={form.title}
+            onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
+        </div>
+        <div>
+          <label className="text-[10px] font-bold text-slate-500 uppercase">開催日 *</label>
+          <input type="date" className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            value={form.event_date} onChange={e => setForm(p => ({ ...p, event_date: e.target.value }))} />
+        </div>
+        <div>
+          <label className="text-[10px] font-bold text-slate-500 uppercase">場所</label>
+          <input className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            placeholder="例: 茅ヶ崎海岸" value={form.location}
+            onChange={e => setForm(p => ({ ...p, location: e.target.value }))} />
+        </div>
+        <div>
+          <label className="text-[10px] font-bold text-slate-500 uppercase">説明</label>
+          <input className="w-full mt-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400"
+            placeholder="例: 参加無料・手袋持参" value={form.description}
+            onChange={e => setForm(p => ({ ...p, description: e.target.value }))} />
+        </div>
+        <button onClick={handleAdd} disabled={!form.title || saving}
+          className="w-full py-3 bg-cyan-500 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-60">
+          {saving ? <RefreshCw size={16} className="animate-spin" /> : <Plus size={16} />}
+          {saving ? '追加中...' : 'イベントを追加'}
+        </button>
+      </div>
+
+      <p className="text-xs font-bold text-slate-600 mb-2">登録済みイベント</p>
+      {loading ? <p className="text-xs text-slate-400">読み込み中...</p>
+        : events.length === 0 ? <p className="text-xs text-slate-400">登録済みのイベントはありません</p>
+        : (
+          <div className="space-y-2">
+            {events.map(ev => (
+              <div key={ev.id} className="bg-white rounded-xl border border-slate-100 p-3 flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2 min-w-0">
+                  <CalendarDays size={16} className="text-cyan-500 mt-0.5 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-700">{ev.event_date} — {ev.title}</p>
+                    {ev.location && <p className="text-[10px] text-slate-400">{ev.location}</p>}
+                    {ev.description && <p className="text-[10px] text-slate-400">{ev.description}</p>}
+                  </div>
+                </div>
+                <button onClick={() => handleDelete(ev.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors shrink-0">
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+    </div>
+  )
+}
+
 // --- Main AdminPanel ---
 export default function AdminPanel({ quests, onBack, onUpdateQuestSettings }: Props) {
   const [tab, setTab] = useState<Tab>('quest')
@@ -337,6 +431,7 @@ export default function AdminPanel({ quests, onBack, onUpdateQuestSettings }: Pr
   const tabs: { key: Tab; label: string; icon: ReactNode }[] = [
     { key: 'quest', label: '受取場所', icon: <MapPin size={16} /> },
     { key: 'weather', label: '天気制御', icon: <Cloud size={16} /> },
+    { key: 'events', label: 'イベント', icon: <CalendarDays size={16} /> },
     { key: 'users', label: 'ユーザー', icon: <Users size={16} /> },
   ]
 
@@ -375,6 +470,7 @@ export default function AdminPanel({ quests, onBack, onUpdateQuestSettings }: Pr
         )}
         {tab === 'quest' && <QuestSettingsTab quests={quests} onUpdate={onUpdateQuestSettings} />}
         {tab === 'weather' && <WeatherTab />}
+        {tab === 'events' && <EventsTab />}
         {tab === 'users' && <UsersTab />}
       </main>
     </div>

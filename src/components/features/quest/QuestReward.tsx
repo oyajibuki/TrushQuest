@@ -11,11 +11,12 @@ export default function QuestReward({ quest, onHome }: Props) {
   const [shareState, setShareState] = useState<'idle' | 'shared'>('idle')
 
   const handleShare = async () => {
-    const text = `TrashQuest: 「${quest.title}」をクリアして${quest.calories}kcal消費しました！🌊海を綺麗にしながら健康になれるアプリです`
+    const url = 'https://trush-quest.vercel.app'
+    const text = `TrashQuest: 「${quest.title}」をクリアして${quest.calories}kcal消費しました！🌊\n海を綺麗にしながら健康になれるアプリです`
 
     if (navigator.share) {
       try {
-        await navigator.share({ title: 'TrashQuest', text })
+        await navigator.share({ title: 'TrashQuest', text, url })
         setShareState('shared')
         setTimeout(() => setShareState('idle'), 3000)
       } catch {
@@ -23,7 +24,7 @@ export default function QuestReward({ quest, onHome }: Props) {
       }
     } else {
       window.open(
-        `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`,
+        `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
         '_blank',
         'noopener,noreferrer'
       )

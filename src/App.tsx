@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWeather } from '@/hooks/useWeather'
 import { useQuestSettings } from '@/hooks/useQuestSettings'
+import { useEvents } from '@/hooks/useEvents'
 import LoginScreen from '@/components/features/auth/LoginScreen'
 import HomeScreen from '@/components/features/home/HomeScreen'
 import QuestDetail from '@/components/features/quest/QuestDetail'
@@ -24,6 +25,7 @@ export default function App() {
   const auth = useAuth()
   const { quests, updateQuestSettings } = useQuestSettings()
   const { weather, refetch: refetchWeather } = useWeather()
+  const { events } = useEvents()
 
   // OAuth リダイレクト後: ログイン済みなのに 'login' ビューのままになる問題を修正
   useEffect(() => {
@@ -75,6 +77,7 @@ export default function App() {
             quests={quests}
             weather={weather}
             userStats={auth.userStats}
+            events={events}
             onQuestSelect={quest => navigateTo('detail', quest)}
             onWeatherRefresh={refetchWeather}
           />
@@ -106,7 +109,12 @@ export default function App() {
             onCapture={() => {
               setCaptured(true)
               setTimeout(async () => {
-                await auth.addCompletion(selectedQuest.id, selectedQuest.title, selectedQuest.calories, selectedQuest.location, selectedQuest.duration)
+                const result = await auth.addCompletion(selectedQuest.id, selectedQuest.title, selectedQuest.calories, selectedQuest.location, selectedQuest.duration)
+                if (!result.success) {
+                  alert(result.message)
+                  navigateTo('home')
+                  return
+                }
                 navigateTo('reward')
               }, 1500)
             }}

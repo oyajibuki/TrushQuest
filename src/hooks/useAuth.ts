@@ -157,7 +157,19 @@ export function useAuth() {
     setUserStats(DEFAULT_STATS)
   }
 
-  const addCompletion = async (questId: number, questTitle: string, calories: number, location?: string, duration?: string) => {
+  const addCompletion = async (questId: number, questTitle: string, calories: number, location?: string, duration?: string): Promise<{ success: boolean; message?: string }> => {
+    // 1日1クエストまで
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+    const alreadyToday = userStats.badges.some(b => {
+      const d = b.completedAt ? new Date(b.completedAt) : null
+      if (!d) return false
+      return d >= todayStart
+    })
+    if (alreadyToday) {
+      return { success: false, message: '本日はすでにクエストをクリアしています。\nまた明日チャレンジしてください！🌊' }
+    }
+
     const now = new Date()
     const newBadge: Badge = {
       id: Date.now(),
@@ -185,6 +197,7 @@ export function useAuth() {
         duration,
       })
     }
+    return { success: true }
   }
 
   const updateProfile = async (name: string, bio: string) => {
