@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { User, Cloud, Award, CalendarDays, CheckCircle2, Edit3, X, Flame, MapPin, Clock, Hash } from 'lucide-react'
+import { User, Cloud, Award, CalendarDays, CheckCircle2, Edit3, X, Flame, MapPin, Clock, Hash, ChevronDown } from 'lucide-react'
 import type { UserProfile, UserStats, Badge } from '@/types'
 
 interface Props {
@@ -128,6 +128,7 @@ function CertModal({ badge, onClose }: { badge: Badge; onClose: () => void }) {
 
 export default function ProfileScreen({ userProfile, userStats, isGuest, onEdit, onLogout, onGoogleLogin }: Props) {
   const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null)
+  const [badgesOpen, setBadgesOpen] = useState(false)
 
   const level = userStats.totalQuests > 0 ? Math.floor(userStats.totalQuests / 2) + 1 : 1
 
@@ -222,53 +223,62 @@ export default function ProfileScreen({ userProfile, userStats, isGuest, onEdit,
           </div>
         </div>
 
-        {/* バッジ一覧 */}
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-bold text-sm text-slate-800 flex items-center gap-2">
+        {/* バッジ一覧（折りたたみ） */}
+        <button
+          onClick={() => setBadgesOpen(prev => !prev)}
+          className="w-full bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center justify-between mb-2 active:scale-[0.99] transition-transform"
+        >
+          <span className="font-bold text-sm text-slate-800 flex items-center gap-2">
             <Award size={16} className="text-yellow-500" />
             獲得バッジ
             <span className="text-xs bg-yellow-100 text-yellow-700 font-bold px-2 py-0.5 rounded-full">
               {userStats.badges.length}個
             </span>
-          </h3>
-          <p className="text-[10px] text-slate-400">タップで証明書を表示</p>
-        </div>
+          </span>
+          <ChevronDown
+            size={18}
+            className={`text-slate-400 transition-transform duration-200 ${badgesOpen ? 'rotate-180' : ''}`}
+          />
+        </button>
 
-        {userStats.badges.length === 0 ? (
-          <div className="bg-white rounded-3xl p-10 text-center text-slate-400 shadow-sm border border-slate-100">
-            <Award size={32} className="mx-auto mb-2 opacity-50" />
-            <p className="text-xs font-bold">まだバッジがありません</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {userStats.badges.map(badge => (
-              <button
-                key={badge.id}
-                onClick={() => setSelectedBadge(badge)}
-                className="w-full bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3 text-left active:scale-[0.98] transition-transform hover:border-cyan-200"
-              >
-                <div className="w-10 h-10 bg-yellow-50 rounded-xl flex items-center justify-center shrink-0">
-                  <Award size={20} className="text-yellow-500" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-slate-800 truncate">{badge.name}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[10px] text-slate-400">{badge.date}</span>
-                    {badge.completedAt && (
-                      <span className="text-[10px] text-slate-400">
-                        {getTimeRange(badge.completedAt, badge.duration)}
-                      </span>
-                    )}
+        {badgesOpen && (
+          userStats.badges.length === 0 ? (
+            <div className="bg-white rounded-3xl p-10 text-center text-slate-400 shadow-sm border border-slate-100 mb-2">
+              <Award size={32} className="mx-auto mb-2 opacity-50" />
+              <p className="text-xs font-bold">まだバッジがありません</p>
+            </div>
+          ) : (
+            <div className="space-y-2 mb-2">
+              <p className="text-[10px] text-slate-400 text-right pr-1">タップで証明書を表示</p>
+              {userStats.badges.map(badge => (
+                <button
+                  key={badge.id}
+                  onClick={() => setSelectedBadge(badge)}
+                  className="w-full bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3 text-left active:scale-[0.98] transition-transform hover:border-cyan-200"
+                >
+                  <div className="w-10 h-10 bg-yellow-50 rounded-xl flex items-center justify-center shrink-0">
+                    <Award size={20} className="text-yellow-500" />
                   </div>
-                </div>
-                {badge.calories && (
-                  <span className="text-xs font-bold text-orange-500 shrink-0">
-                    {badge.calories}kcal
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-slate-800 truncate">{badge.name}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-[10px] text-slate-400">{badge.date}</span>
+                      {badge.completedAt && (
+                        <span className="text-[10px] text-slate-400">
+                          {getTimeRange(badge.completedAt, badge.duration)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {badge.calories && (
+                    <span className="text-xs font-bold text-orange-500 shrink-0">
+                      {badge.calories}kcal
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )
         )}
 
         {/* アクティビティカレンダー */}

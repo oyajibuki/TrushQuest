@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react'
-import { Camera } from 'lucide-react'
+import { Camera, ImagePlus } from 'lucide-react'
 
 interface Props {
   captured: boolean
@@ -9,6 +9,7 @@ interface Props {
 export default function QuestCamera({ captured, onCapture }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const [capturedImage, setCapturedImage] = useState<string | null>(null)
   const [cameraReady, setCameraReady] = useState(false)
@@ -44,38 +45,41 @@ export default function QuestCamera({ captured, onCapture }: Props) {
     onCapture()
   }
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const url = URL.createObjectURL(file)
+    setCapturedImage(url)
+    streamRef.current?.getTracks().forEach(t => t.stop())
+    onCapture()
+  }
+
+  const viewHeight = 'calc(100dvh - 10rem)'
+
   return (
     <div className="bg-black min-h-screen text-white flex flex-col">
-      <div className="flex-1 relative bg-slate-900" style={{ minHeight: 'calc(100dvh - 10rem)' }}>
+      <div className="flex-1 relative bg-slate-900" style={{ minHeight: viewHeight }}>
         {error ? (
-          <div
-            className="flex items-center justify-center text-center p-8"
-            style={{ minHeight: 'calc(100dvh - 10rem)' }}
-          >
+          <div className="flex items-center justify-center text-center p-8" style={{ minHeight: viewHeight }}>
             <div>
               <Camera size={48} className="mx-auto mb-4 opacity-40" />
               <p className="text-sm text-slate-400">{error}</p>
               <p className="text-xs text-slate-500 mt-2">ブラウザの設定でカメラを許可してください</p>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="mt-6 flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white text-sm font-bold px-5 py-3 rounded-2xl transition-colors mx-auto"
+              >
+                <ImagePlus size={18} /> ライブラリから選択
+              </button>
             </div>
           </div>
         ) : capturedImage ? (
-          <img
-            src={capturedImage}
-            alt="撮影した写真"
-            className="w-full object-cover"
-            style={{ minHeight: 'calc(100dvh - 10rem)' }}
-          />
+          <img src={capturedImage} alt="撮影した写真" className="w-full object-cover" style={{ minHeight: viewHeight }} />
         ) : (
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full object-cover"
-            style={{ minHeight: 'calc(100dvh - 10rem)' }}
-          />
+          <video ref={videoRef} autoPlay playsInline muted className="w-full object-cover" style={{ minHeight: viewHeight }} />
         )}
         <canvas ref={canvasRef} className="hidden" />
+        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
 
         {!capturedImage && !error && (
           <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-8">
@@ -87,15 +91,32 @@ export default function QuestCamera({ captured, onCapture }: Props) {
         )}
       </div>
 
-      <div className="h-40 bg-black flex items-center justify-center shrink-0">
+      <div className="h-40 bg-black flex items-center justify-center gap-8 shrink-0">
         {captured ? (
           <p className="text-cyan-400 font-bold animate-pulse">記録中...</p>
         ) : (
-          <button
-            onClick={handleCapture}
-            disabled={!cameraReady || !!error}
-            className="w-20 h-20 bg-white rounded-full border-4 border-slate-400 disabled:opacity-40 active:scale-95 transition-transform"
-          />
+          <>
+            {/* ライブラリから選択 */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex flex-col items-center gap-1 text-slate-400 hover:text-white transition-colors"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center">
+                <ImagePlus size={22} />
+              </div>
+              <span className="text-[10px]">ライブラリ</span>
+            </button>
+
+            {/* シャッターボタン */}
+            <button
+              onClick={handleCapture}
+              disabled={!cameraReady || !!error}
+              className="w-20 h-20 bg-white rounded-full border-4 border-slate-400 disabled:opacity-40 active:scale-95 transition-transform"
+            />
+
+            {/* スペーサー（対称用） */}
+            <div className="w-12" />
+          </>
         )}
       </div>
     </div>
