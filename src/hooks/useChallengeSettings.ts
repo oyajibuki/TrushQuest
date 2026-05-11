@@ -13,7 +13,8 @@ const STORAGE_KEY = 'trashquest_challenge_v1'
 function load(): ChallengeSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : { startDate: null, targetWeight: null, startWeight: null, manualDay: null, manualGarbageCount: null }
+    const defaults: ChallengeSettings = { startDate: null, targetWeight: null, startWeight: null, manualDay: null, manualGarbageCount: null }
+    return raw ? { ...defaults, ...JSON.parse(raw) } : defaults
   } catch {
     return { startDate: null, targetWeight: null, startWeight: null }
   }
