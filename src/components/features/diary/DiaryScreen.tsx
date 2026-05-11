@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronRight, Scale, Utensils, Dumbbell, X, Plus, Settings, ChevronDown, Trash2 } from 'lucide-react'
+import { ChevronRight, Scale, Utensils, Dumbbell, Plus, Settings, ChevronDown, Trash2 } from 'lucide-react'
 import { useDiaryLogs } from '@/hooks/useDiaryLogs'
 import { useChallengeSettings } from '@/hooks/useChallengeSettings'
 import type { UserProfile, WeightLog, MealLog, ExerciseLog } from '@/types'
