@@ -1,7 +1,17 @@
 import { useState } from 'react'
 import { User, Cloud, Award, CalendarDays, Edit3, X, Flame, MapPin, Clock, Hash, ChevronDown, ChevronLeft, ChevronRight, Scale, Utensils, Dumbbell, Trash2 } from 'lucide-react'
 import { useDiaryLogs } from '@/hooks/useDiaryLogs'
+import { useChallengeSettings } from '@/hooks/useChallengeSettings'
 import type { UserProfile, UserStats, Badge, WeightLog, MealLog, ExerciseLog } from '@/types'
+
+// --- 運動消費カロリー推定 ---
+const EXERCISE_MET: Record<string, number> = {
+  '海ゴミ拾い': 4.5, 'ウォーキング': 3.5, 'ジョギング': 7.0, 'ランニング': 9.0,
+  '水泳': 8.0, 'サイクリング': 6.0, 'プランク': 3.5, 'フラフープ': 5.0,
+  '筋トレ': 5.0, 'ストレッチ': 2.5, 'その他': 4.0,
+}
+const estimateExerciseCalories = (type: string, minutes: number, weightKg = 65) =>
+  Math.round((EXERCISE_MET[type] ?? 4.0) * weightKg * minutes / 60)
 
 interface Props {
   userProfile: UserProfile
@@ -136,12 +146,13 @@ function CertModal({ badge, onClose }: { badge: Badge; onClose: () => void }) {
 const MEAL_ORDER = ['朝食', '昼食', '夕食', '間食']
 
 // --- 日記詳細ボトムシート ---
-function DayDetailSheet({ date, weightLogs, mealLogs, exerciseLogs, badges, onClose, onBadgeClick, onDeleteWeight, onDeleteMeal, onDeleteExercise }: {
+function DayDetailSheet({ date, weightLogs, mealLogs, exerciseLogs, badges, bodyWeight, onClose, onBadgeClick, onDeleteWeight, onDeleteMeal, onDeleteExercise }: {
   date: string
   weightLogs: WeightLog[]
   mealLogs: MealLog[]
   exerciseLogs: ExerciseLog[]
   badges: Badge[]
+  bodyWeight: number
   onClose: () => void
   onBadgeClick: (b: Badge) => void
   onDeleteWeight: (id: string) => void
@@ -155,144 +166,166 @@ function DayDetailSheet({ date, weightLogs, mealLogs, exerciseLogs, badges, onCl
   const hasData = dayWeights.length > 0 || dayMeals.length > 0 || dayExercises.length > 0 || dayBadges.length > 0
 
   const dateObj = new Date(date + 'T00:00:00')
-  const dateStr = dateObj.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })
+  const dateStr = dateObj.toLocaleDateString('ja-JP', { month: 'long', day: 'numeric', weekday: 'short' })
 
-  // 食事を朝食/昼食/夕食/間食の順にグループ化
-  const groupedMeals = MEAL_ORDER.map(type => ({
+  // 摂取カロリー集計
+  const totalIntake = dayMeals.reduce((s, m) => s + (m.calories || 0), 0)
+  const mealByType = MEAL_ORDER.map(type => ({
     type,
     items: dayMeals.filter(m => m.meal_type === type),
+    total: dayMeals.filter(m => m.meal_type === type).reduce((s, m) => s + (m.calories || 0), 0),
   })).filter(g => g.items.length > 0)
-  // MEAL_ORDERに含まれないカスタム種類も末尾に追加
   const otherMeals = dayMeals.filter(m => !MEAL_ORDER.includes(m.meal_type))
 
-  const handleDeleteWeight = async (id: string) => {
-    if (window.confirm('この体重記録を削除しますか？')) onDeleteWeight(id)
-  }
-  const handleDeleteMeal = async (id: string) => {
-    if (window.confirm('この食事記録を削除しますか？')) onDeleteMeal(id)
-  }
-  const handleDeleteExercise = async (id: string) => {
-    if (window.confirm('この運動記録を削除しますか？')) onDeleteExercise(id)
-  }
+  // 運動消費カロリー集計
+  const totalExerciseMins = dayExercises.reduce((s, e) => s + e.duration_minutes, 0)
+  const totalExerciseCal = dayExercises.reduce((s, e) => s + estimateExerciseCalories(e.exercise_type, e.duration_minutes, bodyWeight), 0)
+
+  // 写真一覧
+  const allPhotos: { url: string; label: string }[] = []
+  dayWeights.forEach(w => { if (w.photo_url) allPhotos.push({ url: w.photo_url, label: '体型' }) })
+  dayMeals.forEach(m => { if (m.photo_url) allPhotos.push({ url: m.photo_url, label: m.meal_type }) })
+
+  const handleDeleteWeight = (id: string) => { if (window.confirm('この体重記録を削除しますか？')) onDeleteWeight(id) }
+  const handleDeleteMeal = (id: string) => { if (window.confirm('この食事記録を削除しますか？')) onDeleteMeal(id) }
+  const handleDeleteExercise = (id: string) => { if (window.confirm('この運動記録を削除しますか？')) onDeleteExercise(id) }
 
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[75vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[85vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+        {/* ヘッダー */}
         <div className="sticky top-0 bg-white px-5 py-4 border-b border-slate-100 flex items-center justify-between rounded-t-3xl">
-          <p className="font-bold text-slate-800 text-sm">{dateStr}</p>
+          <p className="font-black text-slate-800">{dateStr}</p>
           <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full">
             <X size={20} />
           </button>
         </div>
-        <div className="p-4 space-y-4 pb-8">
+
+        <div className="p-4 space-y-3 pb-8">
           {!hasData && (
             <p className="text-center text-sm text-slate-400 py-10">この日の記録はありません</p>
           )}
 
-          {dayWeights.length > 0 && (
-            <section>
-              <p className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1 mb-2">
-                <Scale size={11} /> 体重
-              </p>
-              {dayWeights.map(w => (
-                <div key={w.id} className="bg-slate-50 rounded-2xl overflow-hidden">
-                  {w.photo_url && <img src={w.photo_url} alt="体型写真" className="w-full h-52 object-cover" />}
-                  <div className="p-3 flex items-center justify-between">
-                    <p className="text-2xl font-black text-slate-800">{Number(w.weight_kg).toFixed(1)} <span className="text-sm font-medium text-slate-400">kg</span></p>
-                    <button onClick={() => handleDeleteWeight(w.id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
+          {/* ① 体重 */}
+          {dayWeights.map(w => (
+            <div key={w.id} className="bg-gradient-to-r from-slate-50 to-slate-100 rounded-2xl overflow-hidden">
+              {w.photo_url && <img src={w.photo_url} alt="体型写真" className="w-full h-48 object-cover" />}
+              <div className="px-4 py-3 flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 flex items-center gap-1 mb-0.5"><Scale size={10} /> 体重</p>
+                  <p className="text-3xl font-black text-slate-800">{Number(w.weight_kg).toFixed(1)}<span className="text-base font-medium text-slate-400 ml-1">kg</span></p>
                 </div>
-              ))}
-            </section>
-          )}
-
-          {(groupedMeals.length > 0 || otherMeals.length > 0) && (
-            <section>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1">
-                  <Utensils size={11} /> 食事
-                </p>
-                <span className="text-[10px] font-bold text-orange-500">
-                  {dayMeals.reduce((s, m) => s + (m.calories || 0), 0)} kcal
-                </span>
+                <button onClick={() => handleDeleteWeight(w.id)} className="p-2 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+                  <Trash2 size={16} />
+                </button>
               </div>
-              <div className="space-y-3">
-                {groupedMeals.map(group => (
+            </div>
+          ))}
+
+          {/* ② 摂取カロリー */}
+          {(mealByType.length > 0 || otherMeals.length > 0) && (
+            <div className="bg-orange-50 rounded-2xl overflow-hidden">
+              <div className="px-4 py-3 flex items-center justify-between border-b border-orange-100">
+                <p className="text-xs font-bold text-orange-600 flex items-center gap-1.5"><Utensils size={12} /> 摂取カロリー</p>
+                <p className="text-lg font-black text-orange-500">{totalIntake} <span className="text-xs font-normal">kcal</span></p>
+              </div>
+              <div className="divide-y divide-orange-100">
+                {mealByType.map(group => (
                   <div key={group.type}>
-                    <p className="text-[10px] font-bold text-slate-500 mb-1.5 pl-1">{group.type}</p>
-                    <div className="space-y-2">
-                      {group.items.map(m => (
-                        <div key={m.id} className="bg-slate-50 rounded-xl overflow-hidden">
-                          {m.photo_url && <img src={m.photo_url} alt="食事写真" className="w-full h-36 object-cover" />}
-                          <div className="p-2.5 flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              {m.calories && <span className="text-[10px] text-orange-500 font-bold">{m.calories} kcal</span>}
-                              {m.memo && <p className="text-xs text-slate-500 mt-0.5">{m.memo}</p>}
-                            </div>
-                            <button onClick={() => handleDeleteMeal(m.id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0">
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                    <div className="px-4 py-2 flex items-center justify-between bg-orange-50/50">
+                      <span className="text-[11px] font-bold text-orange-700">{group.type}</span>
+                      {group.total > 0 && <span className="text-[11px] font-bold text-orange-500">{group.total} kcal</span>}
                     </div>
-                  </div>
-                ))}
-                {otherMeals.length > 0 && (
-                  <div className="space-y-2">
-                    {otherMeals.map(m => (
-                      <div key={m.id} className="bg-slate-50 rounded-xl overflow-hidden">
-                        {m.photo_url && <img src={m.photo_url} alt="食事写真" className="w-full h-36 object-cover" />}
-                        <div className="p-2.5 flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <span className="text-[10px] bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-full font-bold">{m.meal_type}</span>
-                            {m.calories && <span className="text-[10px] text-orange-500 font-bold ml-2">{m.calories} kcal</span>}
-                            {m.memo && <p className="text-xs text-slate-500 mt-0.5">{m.memo}</p>}
+                    {group.items.map(m => (
+                      <div key={m.id} className="bg-white">
+                        {m.photo_url && <img src={m.photo_url} alt="食事写真" className="w-full h-32 object-cover" />}
+                        <div className="px-4 py-2.5 flex items-start justify-between">
+                          <div className="flex-1">
+                            {m.memo && <p className="text-xs text-slate-600">{m.memo}</p>}
+                            {!m.memo && !m.calories && <p className="text-xs text-slate-400">記録あり</p>}
                           </div>
-                          <button onClick={() => handleDeleteMeal(m.id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0">
-                            <Trash2 size={14} />
+                          <button onClick={() => handleDeleteMeal(m.id)} className="p-1.5 text-red-300 hover:text-red-500 rounded-lg transition-colors shrink-0 ml-2">
+                            <Trash2 size={13} />
                           </button>
                         </div>
                       </div>
                     ))}
                   </div>
-                )}
-              </div>
-            </section>
-          )}
-
-          {dayExercises.length > 0 && (
-            <section>
-              <p className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1 mb-2">
-                <Dumbbell size={11} /> 運動
-              </p>
-              <div className="space-y-1.5">
-                {dayExercises.map(e => (
-                  <div key={e.id} className="bg-green-50 rounded-xl p-3 flex items-center gap-2">
-                    <span className="text-[10px] bg-green-200 text-green-700 px-2 py-0.5 rounded-full font-bold shrink-0">{e.exercise_type}</span>
-                    <span className="text-xs text-slate-600 font-bold">{e.duration_minutes}分</span>
-                    {e.notes && <span className="text-[10px] text-slate-400 truncate flex-1">{e.notes}</span>}
-                    <button onClick={() => handleDeleteExercise(e.id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-100 rounded-lg transition-colors shrink-0 ml-auto">
-                      <Trash2 size={14} />
-                    </button>
+                ))}
+                {otherMeals.map(m => (
+                  <div key={m.id} className="bg-white">
+                    {m.photo_url && <img src={m.photo_url} alt="食事写真" className="w-full h-32 object-cover" />}
+                    <div className="px-4 py-2.5 flex items-start justify-between">
+                      <div className="flex-1">
+                        <span className="text-[10px] bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-full font-bold mr-2">{m.meal_type}</span>
+                        {m.calories && <span className="text-[10px] text-orange-500 font-bold">{m.calories} kcal</span>}
+                        {m.memo && <p className="text-xs text-slate-500 mt-0.5">{m.memo}</p>}
+                      </div>
+                      <button onClick={() => handleDeleteMeal(m.id)} className="p-1.5 text-red-300 hover:text-red-500 rounded-lg transition-colors shrink-0 ml-2">
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
-            </section>
+            </div>
           )}
 
+          {/* ③ 運動量 */}
+          {dayExercises.length > 0 && (
+            <div className="bg-green-50 rounded-2xl overflow-hidden">
+              <div className="px-4 py-3 flex items-center justify-between border-b border-green-100">
+                <p className="text-xs font-bold text-green-700 flex items-center gap-1.5"><Dumbbell size={12} /> 運動量</p>
+                <div className="text-right">
+                  <span className="text-xs font-bold text-green-700">{totalExerciseMins}分</span>
+                  <span className="text-xs font-bold text-green-600 ml-2"><Flame size={10} className="inline" /> 約{totalExerciseCal} kcal</span>
+                </div>
+              </div>
+              <div className="divide-y divide-green-100">
+                {dayExercises.map(e => {
+                  const estCal = estimateExerciseCalories(e.exercise_type, e.duration_minutes, bodyWeight)
+                  return (
+                    <div key={e.id} className="px-4 py-2.5 flex items-center gap-2 bg-white">
+                      <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold shrink-0">{e.exercise_type}</span>
+                      <span className="text-xs text-slate-600 font-bold">{e.duration_minutes}分</span>
+                      <span className="text-[10px] text-green-600 font-bold">約{estCal} kcal</span>
+                      {e.notes && <span className="text-[10px] text-slate-400 truncate flex-1">{e.notes}</span>}
+                      <button onClick={() => handleDeleteExercise(e.id)} className="p-1.5 text-red-300 hover:text-red-500 rounded-lg transition-colors shrink-0 ml-auto">
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ④ 写真一覧 */}
+          {allPhotos.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">📸 写真</p>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {allPhotos.map((p, i) => (
+                  <div key={i} className="shrink-0 relative">
+                    <img src={p.url} alt={p.label} className="w-24 h-24 object-cover rounded-xl" />
+                    <span className="absolute bottom-1 left-1 text-[9px] bg-black/50 text-white px-1.5 py-0.5 rounded-md font-bold">{p.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ⑤ クエスト達成 */}
           {dayBadges.length > 0 && (
-            <section>
-              <p className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1 mb-2">
-                <Award size={11} /> クエスト達成
-              </p>
-              <div className="space-y-1.5">
+            <div className="bg-cyan-50 rounded-2xl overflow-hidden">
+              <div className="px-4 py-3 border-b border-cyan-100">
+                <p className="text-xs font-bold text-cyan-700 flex items-center gap-1.5"><Award size={12} /> クエスト達成</p>
+              </div>
+              <div className="divide-y divide-cyan-100">
                 {dayBadges.map(b => (
                   <button key={b.id} onClick={() => onBadgeClick(b)}
-                    className="w-full bg-cyan-50 rounded-xl p-3 flex items-center gap-2 text-left hover:bg-cyan-100 transition-colors">
-                    <Award size={16} className="text-yellow-500 shrink-0" />
+                    className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-cyan-100 transition-colors bg-white">
+                    <Award size={18} className="text-yellow-500 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-bold text-slate-700 truncate">{b.name}</p>
                       {b.calories && <p className="text-[10px] text-orange-500">{b.calories} kcal</p>}
@@ -301,7 +334,7 @@ function DayDetailSheet({ date, weightLogs, mealLogs, exerciseLogs, badges, onCl
                   </button>
                 ))}
               </div>
-            </section>
+            </div>
           )}
         </div>
       </div>
@@ -310,11 +343,12 @@ function DayDetailSheet({ date, weightLogs, mealLogs, exerciseLogs, badges, onCl
 }
 
 // --- カレンダー ---
-function DiaryCalendar({ badges, weightLogs, mealLogs, exerciseLogs, onDeleteWeight, onDeleteMeal, onDeleteExercise }: {
+function DiaryCalendar({ badges, weightLogs, mealLogs, exerciseLogs, bodyWeight, onDeleteWeight, onDeleteMeal, onDeleteExercise }: {
   badges: Badge[]
   weightLogs: WeightLog[]
   mealLogs: MealLog[]
   exerciseLogs: ExerciseLog[]
+  bodyWeight: number
   onDeleteWeight: (id: string) => void
   onDeleteMeal: (id: string) => void
   onDeleteExercise: (id: string) => void
@@ -354,6 +388,7 @@ function DiaryCalendar({ badges, weightLogs, mealLogs, exerciseLogs, onDeleteWei
           mealLogs={mealLogs}
           exerciseLogs={exerciseLogs}
           badges={badges}
+          bodyWeight={bodyWeight}
           onClose={() => setSelectedDate(null)}
           onBadgeClick={b => { setSelectedDate(null); setCertBadge(b) }}
           onDeleteWeight={onDeleteWeight}
@@ -430,6 +465,8 @@ export default function ProfileScreen({ userProfile, userStats, isGuest, onEdit,
   const [badgesOpen, setBadgesOpen] = useState(false)
 
   const { weightLogs, mealLogs, exerciseLogs, deleteWeight, deleteMeal, deleteExercise } = useDiaryLogs(userProfile.id)
+  const { settings: challengeSettings } = useChallengeSettings()
+  const bodyWeight = challengeSettings.startWeight ?? 65
 
   const levelInfo = getLevelInfo(userStats.totalQuests)
 
@@ -572,6 +609,7 @@ export default function ProfileScreen({ userProfile, userStats, isGuest, onEdit,
           weightLogs={weightLogs}
           mealLogs={mealLogs}
           exerciseLogs={exerciseLogs}
+          bodyWeight={bodyWeight}
           onDeleteWeight={deleteWeight}
           onDeleteMeal={deleteMeal}
           onDeleteExercise={deleteExercise}

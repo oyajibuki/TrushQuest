@@ -1,13 +1,31 @@
 import { useState, useRef, useEffect } from 'react'
-import { ChevronRight, Scale, Utensils, Dumbbell, Plus, Settings, ChevronDown, Trash2, Camera, ImagePlus, Pencil, X } from 'lucide-react'
+import { ChevronRight, Scale, Utensils, Dumbbell, Plus, Settings, ChevronDown, Trash2, Camera, ImagePlus, Pencil, X, Flame, TrendingDown } from 'lucide-react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { useDiaryLogs } from '@/hooks/useDiaryLogs'
 import { useChallengeSettings } from '@/hooks/useChallengeSettings'
+import type { ChallengeSettings } from '@/hooks/useChallengeSettings'
 import type { UserProfile, WeightLog, MealLog, ExerciseLog } from '@/types'
 
 type DiaryTab = 'weight' | 'meal' | 'exercise'
 
 const today = () => new Date().toISOString().split('T')[0]
+
+// --- 運動METテーブル ---
+const EXERCISE_MET: Record<string, number> = {
+  '海ゴミ拾い': 4.5,
+  'ウォーキング': 3.5,
+  'ジョギング': 7.0,
+  'ランニング': 9.0,
+  '水泳': 8.0,
+  'サイクリング': 6.0,
+  'プランク': 3.5,
+  'フラフープ': 5.0,
+  '筋トレ': 5.0,
+  'ストレッチ': 2.5,
+  'その他': 4.0,
+}
+const estimateExerciseCalories = (type: string, minutes: number, weightKg = 65) =>
+  Math.round((EXERCISE_MET[type] ?? 4.0) * weightKg * minutes / 60)
 
 // --- 画像圧縮 ---
 async function compressImage(file: File, maxWidth = 1200, quality = 0.75): Promise<File> {
@@ -92,6 +110,66 @@ function WeightChart({ logs }: { logs: WeightLog[] }) {
       {pts.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={i === pts.length - 1 ? 4 : 2.5} fill="#06b6d4" />)}
       <text x={last.x} y={last.y - 9} textAnchor="middle" fontSize="10" fill="#0e7490" fontWeight="bold">{last.w}kg</text>
     </svg>
+  )
+}
+
+// --- 今日の収支サマリーカード ---
+function DailySummaryCard({ date, mealLogs, exerciseLogs, weightLogs, bmr, bodyWeight }: {
+  date: string
+  mealLogs: MealLog[]
+  exerciseLogs: ExerciseLog[]
+  weightLogs: WeightLog[]
+  bmr: number
+  bodyWeight: number
+}) {
+  const dayMeals = mealLogs.filter(l => l.date === date)
+  const dayExercises = exerciseLogs.filter(l => l.date === date)
+  const dayWeight = weightLogs.find(l => l.date === date)
+  const intake = dayMeals.reduce((s, l) => s + (l.calories || 0), 0)
+  const exerciseBurn = dayExercises.reduce((s, l) => s + estimateExerciseCalories(l.exercise_type, l.duration_minutes, bodyWeight), 0)
+  const balance = intake - exerciseBurn - bmr
+
+  if (intake === 0 && exerciseBurn === 0 && !dayWeight) return null
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 mb-4">
+      <p className="text-[10px] font-bold text-slate-500 uppercase mb-3">📊 {date} のサマリー</p>
+      {dayWeight && (
+        <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-100">
+          <span className="text-xs text-slate-500 flex items-center gap-1"><Scale size={12} /> 体重</span>
+          <span className="text-lg font-black text-slate-800">{Number(dayWeight.weight_kg).toFixed(1)} <span className="text-sm font-medium text-slate-400">kg</span></span>
+        </div>
+      )}
+      {(intake > 0 || exerciseBurn > 0) && (
+        <>
+          <div className="grid grid-cols-3 gap-2 text-center mb-3">
+            <div className="bg-orange-50 rounded-xl p-2">
+              <p className="text-[9px] text-orange-400 font-bold mb-0.5">摂取</p>
+              <p className="text-base font-black text-orange-500">{intake}</p>
+              <p className="text-[9px] text-orange-400">kcal</p>
+            </div>
+            <div className="bg-green-50 rounded-xl p-2">
+              <p className="text-[9px] text-green-500 font-bold mb-0.5">運動消費</p>
+              <p className="text-base font-black text-green-600">{exerciseBurn}</p>
+              <p className="text-[9px] text-green-500">kcal</p>
+            </div>
+            <div className="bg-blue-50 rounded-xl p-2">
+              <p className="text-[9px] text-blue-400 font-bold mb-0.5">基礎代謝</p>
+              <p className="text-base font-black text-blue-500">{bmr}</p>
+              <p className="text-[9px] text-blue-400">kcal</p>
+            </div>
+          </div>
+          <div className={`rounded-xl p-2.5 text-center ${balance > 0 ? 'bg-red-50' : 'bg-emerald-50'}`}>
+            <p className="text-[9px] font-bold mb-0.5" style={{ color: balance > 0 ? '#ef4444' : '#10b981' }}>
+              収支（摂取 − 運動消費 − 基礎代謝）
+            </p>
+            <p className={`text-xl font-black ${balance > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+              {balance > 0 ? '+' : ''}{balance} <span className="text-sm font-normal">kcal</span>
+            </p>
+          </div>
+        </>
+      )}
+    </div>
   )
 }
 
@@ -383,11 +461,12 @@ const EXERCISE_TYPES = [
 ]
 const TIME_PRESETS = [1, 5, 10, 20, 30, 60]
 
-function ExerciseTab({ logs, onAdd, onUpdate, onDelete }: {
+function ExerciseTab({ logs, onAdd, onUpdate, onDelete, bodyWeight }: {
   logs: ExerciseLog[]
   onAdd: (date: string, type: string, mins: number, notes?: string) => Promise<boolean>
   onUpdate: (id: string, date: string, type: string, mins: number, notes?: string) => Promise<boolean>
   onDelete: (id: string) => void
+  bodyWeight: number
 }) {
   const [date, setDate] = useState(today())
   const [exType, setExType] = useState('海ゴミ拾い')
@@ -423,6 +502,8 @@ function ExerciseTab({ logs, onAdd, onUpdate, onDelete }: {
   }
 
   const todayLogs = logs.filter(l => l.date === date)
+  const todayTotalMins = todayLogs.reduce((s, l) => s + l.duration_minutes, 0)
+  const todayTotalCal = todayLogs.reduce((s, l) => s + estimateExerciseCalories(l.exercise_type, l.duration_minutes, bodyWeight), 0)
 
   return (
     <div className="space-y-4">
@@ -463,6 +544,11 @@ function ExerciseTab({ logs, onAdd, onUpdate, onDelete }: {
           <input type="number" value={duration} onChange={e => setDuration(e.target.value)}
             placeholder="分数を直接入力"
             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400" />
+          {duration && parseInt(duration) > 0 && (
+            <p className="text-[10px] text-green-600 font-bold mt-1 pl-1">
+              推定消費: 約{estimateExerciseCalories(exType, parseInt(duration), bodyWeight)} kcal
+            </p>
+          )}
         </div>
 
         <div>
@@ -487,27 +573,39 @@ function ExerciseTab({ logs, onAdd, onUpdate, onDelete }: {
 
       {todayLogs.length > 0 && (
         <div>
-          <p className="text-xs font-bold text-slate-600 mb-2">{date} の運動</p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-bold text-slate-600">{date} の運動</p>
+            <div className="text-right">
+              <span className="text-xs font-bold text-slate-600">{todayTotalMins}分</span>
+              <span className="text-xs font-bold text-green-600 ml-2">
+                <Flame size={11} className="inline" /> 約{todayTotalCal} kcal
+              </span>
+            </div>
+          </div>
           <div className="space-y-2">
-            {todayLogs.map(log => (
-              <div key={log.id} className={`bg-white rounded-xl border shadow-sm p-3 flex items-start justify-between ${editingId === log.id ? 'border-cyan-300' : 'border-slate-100'}`}>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">{log.exercise_type}</span>
-                    <span className="text-[10px] text-slate-500 font-bold">{log.duration_minutes}分</span>
+            {todayLogs.map(log => {
+              const estCal = estimateExerciseCalories(log.exercise_type, log.duration_minutes, bodyWeight)
+              return (
+                <div key={log.id} className={`bg-white rounded-xl border shadow-sm p-3 flex items-start justify-between ${editingId === log.id ? 'border-cyan-300' : 'border-slate-100'}`}>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">{log.exercise_type}</span>
+                      <span className="text-[10px] text-slate-500 font-bold">{log.duration_minutes}分</span>
+                      <span className="text-[10px] text-green-600 font-bold">約{estCal} kcal</span>
+                    </div>
+                    {log.notes && <p className="text-[10px] text-slate-400 mt-0.5">{log.notes}</p>}
                   </div>
-                  {log.notes && <p className="text-[10px] text-slate-400 mt-0.5">{log.notes}</p>}
+                  <div className="flex gap-1 shrink-0">
+                    <button onClick={() => startEdit(log)} className="p-1.5 text-slate-300 hover:text-cyan-500 transition-colors">
+                      <Pencil size={14} />
+                    </button>
+                    <button onClick={() => onDelete(log.id)} className="p-1.5 text-slate-300 hover:text-red-500 transition-colors">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-1 shrink-0">
-                  <button onClick={() => startEdit(log)} className="p-1.5 text-slate-300 hover:text-cyan-500 transition-colors">
-                    <Pencil size={14} />
-                  </button>
-                  <button onClick={() => onDelete(log.id)} className="p-1.5 text-slate-300 hover:text-red-500 transition-colors">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
@@ -516,20 +614,24 @@ function ExerciseTab({ logs, onAdd, onUpdate, onDelete }: {
         <div>
           <p className="text-xs font-bold text-slate-600 mb-2">過去の運動</p>
           <div className="space-y-2">
-            {logs.filter(l => l.date !== date).slice(0, 10).map(log => (
-              <div key={log.id} className="bg-white rounded-xl border border-slate-100 p-3 flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">{log.exercise_type}</span>
-                    <span className="text-[10px] text-slate-500 font-bold">{log.duration_minutes}分</span>
+            {logs.filter(l => l.date !== date).slice(0, 10).map(log => {
+              const estCal = estimateExerciseCalories(log.exercise_type, log.duration_minutes, bodyWeight)
+              return (
+                <div key={log.id} className="bg-white rounded-xl border border-slate-100 p-3 flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">{log.exercise_type}</span>
+                      <span className="text-[10px] text-slate-500 font-bold">{log.duration_minutes}分</span>
+                      <span className="text-[10px] text-green-600 font-bold">約{estCal} kcal</span>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-0.5">{log.date}{log.notes ? ` — ${log.notes}` : ''}</p>
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{log.date}{log.notes ? ` — ${log.notes}` : ''}</p>
+                  <button onClick={() => onDelete(log.id)} className="p-1.5 text-slate-300 hover:text-red-500 shrink-0">
+                    <Trash2 size={14} />
+                  </button>
                 </div>
-                <button onClick={() => onDelete(log.id)} className="p-1.5 text-slate-300 hover:text-red-500 shrink-0">
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
@@ -538,16 +640,35 @@ function ExerciseTab({ logs, onAdd, onUpdate, onDelete }: {
 }
 
 // --- チャレンジ設定カード ---
-function ChallengeSetupCard() {
-  const { settings, updateSettings, dayNumber, isActive } = useChallengeSettings()
+interface ChallengeSetupCardProps {
+  settings: ChallengeSettings
+  updateSettings: (updates: Partial<ChallengeSettings>) => Promise<void>
+  dayNumber: number | null
+  isActive: boolean
+}
+
+function ChallengeSetupCard({ settings, updateSettings, dayNumber, isActive }: ChallengeSetupCardProps) {
   const [open, setOpen] = useState(!isActive)
   const [startDate, setStartDate] = useState(settings.startDate || today())
   const [startWeight, setStartWeight] = useState(settings.startWeight ? String(settings.startWeight) : '')
   const [targetWeight, setTargetWeight] = useState(settings.targetWeight ? String(settings.targetWeight) : '')
   const [totalDays, setTotalDays] = useState(settings.totalDays ? String(settings.totalDays) : '')
   const [garbageGoal, setGarbageGoal] = useState(settings.garbageGoal ? String(settings.garbageGoal) : '')
+  const [bmr, setBmr] = useState(settings.bmr ? String(settings.bmr) : '')
   const [manualDay, setManualDay] = useState(settings.manualDay ? String(settings.manualDay) : '')
   const [manualGarbage, setManualGarbage] = useState(settings.manualGarbageCount ? String(settings.manualGarbageCount) : '')
+
+  // settingsが外部から更新された時にフォームを同期
+  useEffect(() => {
+    setStartDate(settings.startDate || today())
+    setStartWeight(settings.startWeight ? String(settings.startWeight) : '')
+    setTargetWeight(settings.targetWeight ? String(settings.targetWeight) : '')
+    setTotalDays(settings.totalDays ? String(settings.totalDays) : '')
+    setGarbageGoal(settings.garbageGoal ? String(settings.garbageGoal) : '')
+    setBmr(settings.bmr ? String(settings.bmr) : '')
+    setManualDay(settings.manualDay ? String(settings.manualDay) : '')
+    setManualGarbage(settings.manualGarbageCount ? String(settings.manualGarbageCount) : '')
+  }, [settings])
 
   const handleSave = () => {
     updateSettings({
@@ -556,6 +677,7 @@ function ChallengeSetupCard() {
       targetWeight: targetWeight ? parseFloat(targetWeight) : null,
       totalDays: totalDays ? parseInt(totalDays) : null,
       garbageGoal: garbageGoal ? parseInt(garbageGoal) : null,
+      bmr: bmr ? parseInt(bmr) : null,
       manualDay: manualDay ? parseInt(manualDay) : null,
       manualGarbageCount: manualGarbage ? parseInt(manualGarbage) : null,
     })
@@ -582,6 +704,7 @@ function ChallengeSetupCard() {
           <div><p className="text-[10px] text-blue-100">開始日</p><p className="font-bold text-xs">{settings.startDate}</p></div>
           {settings.startWeight && <div><p className="text-[10px] text-blue-100">開始体重</p><p className="font-bold text-xs">{settings.startWeight} kg</p></div>}
           {weightDelta && <div><p className="text-[10px] text-blue-100">目標減量</p><p className="font-bold text-xs">-{weightDelta} kg</p></div>}
+          {settings.bmr && <div><p className="text-[10px] text-blue-100">基礎代謝</p><p className="font-bold text-xs">{settings.bmr} kcal</p></div>}
         </div>
       )}
 
@@ -615,6 +738,14 @@ function ChallengeSetupCard() {
               <input type="number" min="1" value={garbageGoal} onChange={e => setGarbageGoal(e.target.value)} placeholder="空欄=20回"
                 className="w-full mt-1 bg-white/20 border border-white/30 rounded-xl px-3 py-2 text-sm text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50" />
             </div>
+          </div>
+          <div>
+            <label className="text-[10px] text-blue-100 uppercase font-bold flex items-center gap-1">
+              <TrendingDown size={10} /> 基礎代謝 (kcal/日)
+            </label>
+            <input type="number" min="800" max="3000" value={bmr} onChange={e => setBmr(e.target.value)} placeholder="空欄=1500（平均値）"
+              className="w-full mt-1 bg-white/20 border border-white/30 rounded-xl px-3 py-2 text-sm text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50" />
+            <p className="text-[9px] text-blue-100/70 mt-0.5">男性平均: 1500 / 女性平均: 1200 kcal</p>
           </div>
           <div className="flex gap-2">
             <div className="flex-1">
@@ -651,6 +782,11 @@ export default function DiaryScreen({ userProfile, onBack }: Props) {
     addExercise, updateExercise, deleteExercise,
   } = useDiaryLogs(userProfile.id)
 
+  const { settings, updateSettings, dayNumber, isActive } = useChallengeSettings()
+  const bmrValue = settings.bmr ?? 1500
+  const bodyWeight = settings.startWeight ?? 65
+  const todayStr = today()
+
   const tabs = [
     { key: 'weight' as DiaryTab, label: '体重', Icon: Scale },
     { key: 'meal' as DiaryTab, label: '食事', Icon: Utensils },
@@ -677,10 +813,23 @@ export default function DiaryScreen({ userProfile, onBack }: Props) {
       </header>
 
       <main className="p-4 mt-2">
-        <ChallengeSetupCard />
+        <ChallengeSetupCard
+          settings={settings}
+          updateSettings={updateSettings}
+          dayNumber={dayNumber}
+          isActive={isActive}
+        />
+        <DailySummaryCard
+          date={todayStr}
+          mealLogs={mealLogs}
+          exerciseLogs={exerciseLogs}
+          weightLogs={weightLogs}
+          bmr={bmrValue}
+          bodyWeight={bodyWeight}
+        />
         {tab === 'weight' && <WeightTab logs={weightLogs} onAdd={addWeight} onDelete={deleteWeight} userId={userProfile.id} />}
         {tab === 'meal' && <MealTab logs={mealLogs} onAdd={addMeal} onUpdate={updateMeal} onDelete={deleteMeal} userId={userProfile.id} />}
-        {tab === 'exercise' && <ExerciseTab logs={exerciseLogs} onAdd={addExercise} onUpdate={updateExercise} onDelete={deleteExercise} />}
+        {tab === 'exercise' && <ExerciseTab logs={exerciseLogs} onAdd={addExercise} onUpdate={updateExercise} onDelete={deleteExercise} bodyWeight={bodyWeight} />}
       </main>
     </div>
   )
