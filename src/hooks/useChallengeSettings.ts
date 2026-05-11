@@ -16,7 +16,7 @@ function load(): ChallengeSettings {
     const defaults: ChallengeSettings = { startDate: null, targetWeight: null, startWeight: null, manualDay: null, manualGarbageCount: null }
     return raw ? { ...defaults, ...JSON.parse(raw) } : defaults
   } catch {
-    return { startDate: null, targetWeight: null, startWeight: null }
+    return { startDate: null, targetWeight: null, startWeight: null, manualDay: null, manualGarbageCount: null }
   }
 }
 
