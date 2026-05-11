@@ -469,9 +469,9 @@ function ChallengeSetupCard() {
       <button className="w-full flex items-center justify-between" onClick={() => setOpen(v => !v)}>
         <div className="flex items-center gap-2">
           <Settings size={16} />
-          <span className="font-bold text-sm">50日チャレンジ設定</span>
+          <span className="font-bold text-sm">チャレンジ設定</span>
           {isActive && displayDay && (
-            <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">Day {displayDay} / 50</span>
+            <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">Day {displayDay}</span>
           )}
         </div>
         {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
@@ -522,7 +522,7 @@ function ChallengeSetupCard() {
           <div>
             <label className="text-[10px] text-blue-100 uppercase font-bold">チャレンジ総日数</label>
             <input type="number" min="1" max="365" value={totalDays} onChange={e => setTotalDays(e.target.value)}
-              placeholder="空欄=50日"
+              placeholder="空欄=制限なし"
               className="w-full mt-1 bg-white/20 border border-white/30 rounded-xl px-3 py-2 text-sm text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50" />
           </div>
           <div className="flex gap-2">

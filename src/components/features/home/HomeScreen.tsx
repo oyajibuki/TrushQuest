@@ -119,7 +119,7 @@ function ChallengeCard({ questCount }: { questCount: number }) {
   return (
     <div className="mb-4 bg-white/15 border border-white/25 rounded-2xl p-4 backdrop-blur-sm">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs font-bold text-white/80 uppercase tracking-wider">🌊 50日チャレンジ</p>
+        <p className="text-xs font-bold text-white/80 uppercase tracking-wider">🌊 チャレンジ進捗</p>
         <span className="text-[10px] bg-white/20 text-white px-2 py-0.5 rounded-full font-bold">
           Day {displayDay} / {totalDays}
         </span>
