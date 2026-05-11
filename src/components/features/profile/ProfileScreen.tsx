@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { User, Cloud, Award, CalendarDays, CheckCircle2, Edit3, X, Flame, MapPin, Clock, Hash, ChevronDown, ChevronLeft, ChevronRight, Scale, Utensils, Dumbbell } from 'lucide-react'
+import { User, Cloud, Award, CalendarDays, Edit3, X, Flame, MapPin, Clock, Hash, ChevronDown, ChevronLeft, ChevronRight, Scale, Utensils, Dumbbell } from 'lucide-react'
 import { useDiaryLogs } from '@/hooks/useDiaryLogs'
 import type { UserProfile, UserStats, Badge, WeightLog, MealLog, ExerciseLog } from '@/types'
 
