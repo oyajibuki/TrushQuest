@@ -9,12 +9,33 @@ type DiaryTab = 'weight' | 'meal' | 'exercise'
 
 const today = () => new Date().toISOString().split('T')[0]
 
+// --- 画像圧縮 ---
+async function compressImage(file: File, maxWidth = 1200, quality = 0.75): Promise<File> {
+  return new Promise(resolve => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const scale = Math.min(1, maxWidth / img.width)
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(img.width * scale)
+      canvas.height = Math.round(img.height * scale)
+      canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
+      canvas.toBlob(blob => {
+        resolve(blob ? new File([blob], 'photo.jpg', { type: 'image/jpeg' }) : file)
+      }, 'image/jpeg', quality)
+    }
+    img.onerror = () => resolve(file)
+    img.src = url
+  })
+}
+
 // --- 写真アップロード ---
 async function uploadDiaryPhoto(file: File, userId: string): Promise<string | null> {
   if (!isSupabaseConfigured) return null
-  const ext = file.type.includes('png') ? 'png' : 'jpg'
-  const path = `${userId}/${Date.now()}.${ext}`
-  const { error } = await supabase.storage.from('diary-photos').upload(path, file, { contentType: file.type })
+  const compressed = await compressImage(file)
+  const path = `${userId}/${Date.now()}.jpg`
+  const { error } = await supabase.storage.from('diary-photos').upload(path, compressed, { contentType: 'image/jpeg' })
   if (error) return null
   const { data } = supabase.storage.from('diary-photos').getPublicUrl(path)
   return data.publicUrl
@@ -422,6 +443,7 @@ function ChallengeSetupCard() {
   const [startDate, setStartDate] = useState(settings.startDate || today())
   const [startWeight, setStartWeight] = useState(settings.startWeight ? String(settings.startWeight) : '')
   const [targetWeight, setTargetWeight] = useState(settings.targetWeight ? String(settings.targetWeight) : '')
+  const [totalDays, setTotalDays] = useState(settings.totalDays ? String(settings.totalDays) : '')
   const [manualDay, setManualDay] = useState(settings.manualDay ? String(settings.manualDay) : '')
   const [manualGarbage, setManualGarbage] = useState(settings.manualGarbageCount ? String(settings.manualGarbageCount) : '')
 
@@ -430,6 +452,7 @@ function ChallengeSetupCard() {
       startDate: startDate || null,
       startWeight: startWeight ? parseFloat(startWeight) : null,
       targetWeight: targetWeight ? parseFloat(targetWeight) : null,
+      totalDays: totalDays ? parseInt(totalDays) : null,
       manualDay: manualDay ? parseInt(manualDay) : null,
       manualGarbageCount: manualGarbage ? parseInt(manualGarbage) : null,
     })
@@ -495,6 +518,12 @@ function ChallengeSetupCard() {
                 placeholder="例: 68.0"
                 className="w-full mt-1 bg-white/20 border border-white/30 rounded-xl px-3 py-2 text-sm text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50" />
             </div>
+          </div>
+          <div>
+            <label className="text-[10px] text-blue-100 uppercase font-bold">チャレンジ総日数</label>
+            <input type="number" min="1" max="365" value={totalDays} onChange={e => setTotalDays(e.target.value)}
+              placeholder="空欄=50日"
+              className="w-full mt-1 bg-white/20 border border-white/30 rounded-xl px-3 py-2 text-sm text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50" />
           </div>
           <div className="flex gap-2">
             <div className="flex-1">

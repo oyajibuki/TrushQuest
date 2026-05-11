@@ -8,7 +8,7 @@ export function useDiaryLogs(userId?: string) {
   const [exerciseLogs, setExerciseLogs] = useState<ExerciseLog[]>([])
   const [loading, setLoading] = useState(false)
 
-  const sinceDate = new Date(Date.now() - 60 * 86400000).toISOString().split('T')[0]
+  const sinceDate = new Date(Date.now() - 120 * 86400000).toISOString().split('T')[0]
 
   const fetchAll = useCallback(async () => {
     if (!isSupabaseConfigured || !userId) return

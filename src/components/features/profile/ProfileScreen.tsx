@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { User, Cloud, Award, CalendarDays, CheckCircle2, Edit3, X, Flame, MapPin, Clock, Hash, ChevronDown } from 'lucide-react'
-import type { UserProfile, UserStats, Badge } from '@/types'
+import { User, Cloud, Award, CalendarDays, CheckCircle2, Edit3, X, Flame, MapPin, Clock, Hash, ChevronDown, ChevronLeft, ChevronRight, Scale, Utensils, Dumbbell } from 'lucide-react'
+import { useDiaryLogs } from '@/hooks/useDiaryLogs'
+import type { UserProfile, UserStats, Badge, WeightLog, MealLog, ExerciseLog } from '@/types'
 
 interface Props {
   userProfile: UserProfile
@@ -57,6 +58,7 @@ function getLevelInfo(questCount: number) {
   return LEVELS[0]
 }
 
+// --- 証明書モーダル ---
 function CertModal({ badge, onClose }: { badge: Badge; onClose: () => void }) {
   const hash = generateCertHash(badge.id, badge.questId, badge.completedAt)
   const timeRange = getTimeRange(badge.completedAt, badge.duration)
@@ -67,19 +69,10 @@ function CertModal({ badge, onClose }: { badge: Badge; onClose: () => void }) {
     : badge.date
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden"
-        onClick={e => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="bg-gradient-to-br from-cyan-500 to-blue-600 p-6 text-white text-center relative">
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center"
-          >
+          <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
             <X size={16} />
           </button>
           <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -88,13 +81,11 @@ function CertModal({ badge, onClose }: { badge: Badge; onClose: () => void }) {
           <p className="text-xs text-blue-100 uppercase tracking-widest mb-1">TrashQuest</p>
           <h3 className="text-lg font-black">清掃活動 証明書</h3>
         </div>
-
         <div className="p-6 space-y-4">
           <div className="text-center border-b border-dashed border-slate-200 pb-4">
             <p className="text-xs text-slate-400 mb-1">クエスト名</p>
             <p className="text-base font-black text-slate-800">{badge.name}</p>
           </div>
-
           <div className="space-y-3">
             <div className="flex items-start gap-3">
               <CalendarDays size={16} className="text-cyan-500 mt-0.5 shrink-0" />
@@ -103,7 +94,6 @@ function CertModal({ badge, onClose }: { badge: Badge; onClose: () => void }) {
                 <p className="text-sm font-bold text-slate-700">{dateStr}</p>
               </div>
             </div>
-
             <div className="flex items-start gap-3">
               <Clock size={16} className="text-cyan-500 mt-0.5 shrink-0" />
               <div>
@@ -111,7 +101,6 @@ function CertModal({ badge, onClose }: { badge: Badge; onClose: () => void }) {
                 <p className="text-sm font-bold text-slate-700">{timeRange}</p>
               </div>
             </div>
-
             {badge.location && (
               <div className="flex items-start gap-3">
                 <MapPin size={16} className="text-cyan-500 mt-0.5 shrink-0" />
@@ -121,7 +110,6 @@ function CertModal({ badge, onClose }: { badge: Badge; onClose: () => void }) {
                 </div>
               </div>
             )}
-
             {badge.calories && (
               <div className="flex items-start gap-3">
                 <Flame size={16} className="text-orange-400 mt-0.5 shrink-0" />
@@ -132,7 +120,6 @@ function CertModal({ badge, onClose }: { badge: Badge; onClose: () => void }) {
               </div>
             )}
           </div>
-
           <div className="mt-2 bg-slate-50 rounded-2xl p-3 border border-slate-100">
             <div className="flex items-center gap-2 mb-1">
               <Hash size={12} className="text-slate-400" />
@@ -146,25 +133,236 @@ function CertModal({ badge, onClose }: { badge: Badge; onClose: () => void }) {
   )
 }
 
+// --- 日記詳細ボトムシート ---
+function DayDetailSheet({ date, weightLogs, mealLogs, exerciseLogs, badges, onClose, onBadgeClick }: {
+  date: string
+  weightLogs: WeightLog[]
+  mealLogs: MealLog[]
+  exerciseLogs: ExerciseLog[]
+  badges: Badge[]
+  onClose: () => void
+  onBadgeClick: (b: Badge) => void
+}) {
+  const dayWeights = weightLogs.filter(l => l.date === date)
+  const dayMeals = mealLogs.filter(l => l.date === date)
+  const dayExercises = exerciseLogs.filter(l => l.date === date)
+  const dayBadges = badges.filter(b => b.completedAt ? b.completedAt.startsWith(date) : false)
+  const hasData = dayWeights.length > 0 || dayMeals.length > 0 || dayExercises.length > 0 || dayBadges.length > 0
+
+  const dateObj = new Date(date + 'T00:00:00')
+  const dateStr = dateObj.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-t-3xl w-full max-w-md max-h-[75vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="sticky top-0 bg-white px-5 py-4 border-b border-slate-100 flex items-center justify-between rounded-t-3xl">
+          <p className="font-bold text-slate-800 text-sm">{dateStr}</p>
+          <button onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="p-4 space-y-4 pb-8">
+          {!hasData && (
+            <p className="text-center text-sm text-slate-400 py-10">この日の記録はありません</p>
+          )}
+
+          {dayWeights.length > 0 && (
+            <section>
+              <p className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1 mb-2">
+                <Scale size={11} /> 体重
+              </p>
+              {dayWeights.map(w => (
+                <div key={w.id} className="bg-slate-50 rounded-2xl overflow-hidden">
+                  {w.photo_url && <img src={w.photo_url} alt="体型写真" className="w-full h-52 object-cover" />}
+                  <div className="p-3">
+                    <p className="text-2xl font-black text-slate-800">{Number(w.weight_kg).toFixed(1)} <span className="text-sm font-medium text-slate-400">kg</span></p>
+                  </div>
+                </div>
+              ))}
+            </section>
+          )}
+
+          {dayMeals.length > 0 && (
+            <section>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1">
+                  <Utensils size={11} /> 食事
+                </p>
+                <span className="text-[10px] font-bold text-orange-500">
+                  {dayMeals.reduce((s, m) => s + (m.calories || 0), 0)} kcal
+                </span>
+              </div>
+              <div className="space-y-2">
+                {dayMeals.map(m => (
+                  <div key={m.id} className="bg-slate-50 rounded-xl overflow-hidden">
+                    {m.photo_url && <img src={m.photo_url} alt="食事写真" className="w-full h-36 object-cover" />}
+                    <div className="p-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-full font-bold">{m.meal_type}</span>
+                        {m.calories && <span className="text-[10px] text-orange-500 font-bold">{m.calories} kcal</span>}
+                      </div>
+                      {m.memo && <p className="text-xs text-slate-500 mt-1">{m.memo}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {dayExercises.length > 0 && (
+            <section>
+              <p className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1 mb-2">
+                <Dumbbell size={11} /> 運動
+              </p>
+              <div className="space-y-1.5">
+                {dayExercises.map(e => (
+                  <div key={e.id} className="bg-green-50 rounded-xl p-3 flex items-center gap-2">
+                    <span className="text-[10px] bg-green-200 text-green-700 px-2 py-0.5 rounded-full font-bold shrink-0">{e.exercise_type}</span>
+                    <span className="text-xs text-slate-600 font-bold">{e.duration_minutes}分</span>
+                    {e.notes && <span className="text-[10px] text-slate-400 truncate">{e.notes}</span>}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {dayBadges.length > 0 && (
+            <section>
+              <p className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1 mb-2">
+                <Award size={11} /> クエスト達成
+              </p>
+              <div className="space-y-1.5">
+                {dayBadges.map(b => (
+                  <button key={b.id} onClick={() => onBadgeClick(b)}
+                    className="w-full bg-cyan-50 rounded-xl p-3 flex items-center gap-2 text-left hover:bg-cyan-100 transition-colors">
+                    <Award size={16} className="text-yellow-500 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-slate-700 truncate">{b.name}</p>
+                      {b.calories && <p className="text-[10px] text-orange-500">{b.calories} kcal</p>}
+                    </div>
+                    <span className="text-[10px] text-cyan-500 font-bold shrink-0">証明書 →</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// --- カレンダー ---
+function DiaryCalendar({ userId, badges }: { userId?: string; badges: Badge[] }) {
+  const [viewDate, setViewDate] = useState(new Date())
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [certBadge, setCertBadge] = useState<Badge | null>(null)
+  const { weightLogs, mealLogs, exerciseLogs } = useDiaryLogs(userId)
+
+  const year = viewDate.getFullYear()
+  const month = viewDate.getMonth()
+  const firstDay = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const todayStr = new Date().toISOString().split('T')[0]
+
+  const toDateStr = (d: number) => `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+
+  const hasBadge = (d: number) => badges.some(b => {
+    const s = b.completedAt ? b.completedAt.split('T')[0] : null
+    return s === toDateStr(d)
+  })
+
+  const hasDiary = (d: number) => {
+    const ds = toDateStr(d)
+    return weightLogs.some(l => l.date === ds) || mealLogs.some(l => l.date === ds) || exerciseLogs.some(l => l.date === ds)
+  }
+
+  const prevMonth = () => setViewDate(new Date(year, month - 1, 1))
+  const nextMonth = () => setViewDate(new Date(year, month + 1, 1))
+
+  return (
+    <>
+      {certBadge && <CertModal badge={certBadge} onClose={() => setCertBadge(null)} />}
+      {selectedDate && (
+        <DayDetailSheet
+          date={selectedDate}
+          weightLogs={weightLogs}
+          mealLogs={mealLogs}
+          exerciseLogs={exerciseLogs}
+          badges={badges}
+          onClose={() => setSelectedDate(null)}
+          onBadgeClick={b => { setSelectedDate(null); setCertBadge(b) }}
+        />
+      )}
+
+      <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
+        <div className="flex justify-between items-center mb-4">
+          <button onClick={prevMonth} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100">
+            <ChevronLeft size={18} />
+          </button>
+          <span className="font-bold text-slate-700 text-sm">{year}年{month + 1}月</span>
+          <button onClick={nextMonth} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100">
+            <ChevronRight size={18} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-7 gap-1 text-center mb-1">
+          {['日', '月', '火', '水', '木', '金', '土'].map(d => (
+            <div key={d} className="text-[10px] text-slate-400 font-bold py-1">{d}</div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-7 gap-1 text-center">
+          {Array.from({ length: firstDay }).map((_, i) => <div key={`e-${i}`} />)}
+          {Array.from({ length: daysInMonth }).map((_, i) => {
+            const day = i + 1
+            const ds = toDateStr(day)
+            const isToday = ds === todayStr
+            const badge = hasBadge(day)
+            const diary = hasDiary(day)
+            const isSelected = selectedDate === ds
+
+            let bg = 'bg-slate-50 text-slate-500'
+            if (isSelected) bg = 'bg-cyan-500 text-white'
+            else if (badge && diary) bg = 'bg-gradient-to-br from-cyan-100 to-orange-100 text-slate-700 font-bold'
+            else if (badge) bg = 'bg-cyan-100 text-cyan-700 font-bold'
+            else if (diary) bg = 'bg-orange-50 text-orange-700 font-bold'
+            else if (isToday) bg = 'border-2 border-cyan-400 text-cyan-600 font-bold bg-white'
+
+            return (
+              <button
+                key={day}
+                onClick={() => setSelectedDate(ds === selectedDate ? null : ds)}
+                className={`w-full aspect-square flex flex-col items-center justify-center rounded-lg transition-all active:scale-95 ${bg}`}
+              >
+                <span className="text-[11px] leading-none">{day}</span>
+                <div className="flex gap-0.5 mt-0.5">
+                  {badge && !isSelected && <span className="w-1 h-1 rounded-full bg-cyan-500 inline-block" />}
+                  {diary && !isSelected && <span className="w-1 h-1 rounded-full bg-orange-400 inline-block" />}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="flex gap-3 mt-3 justify-center">
+          <span className="flex items-center gap-1 text-[10px] text-slate-400">
+            <span className="w-2 h-2 rounded-full bg-cyan-500 inline-block" /> クエスト
+          </span>
+          <span className="flex items-center gap-1 text-[10px] text-slate-400">
+            <span className="w-2 h-2 rounded-full bg-orange-400 inline-block" /> 日記
+          </span>
+        </div>
+      </div>
+    </>
+  )
+}
+
 export default function ProfileScreen({ userProfile, userStats, isGuest, onEdit, onLogout, onGoogleLogin }: Props) {
   const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null)
   const [badgesOpen, setBadgesOpen] = useState(false)
 
   const levelInfo = getLevelInfo(userStats.totalQuests)
-
-  const today = new Date()
-  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).getDay()
-  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
-
-  const completedDays = new Set<number>()
-  userStats.badges.forEach(badge => {
-    const d = badge.completedAt
-      ? new Date(badge.completedAt)
-      : typeof badge.date === 'string' ? new Date(badge.date) : null
-    if (d && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear()) {
-      completedDays.add(d.getDate())
-    }
-  })
 
   return (
     <div className="pb-24 bg-slate-50 min-h-screen animate-in fade-in duration-300">
@@ -188,9 +386,7 @@ export default function ProfileScreen({ userProfile, userStats, isGuest, onEdit,
                 Lv.{levelInfo.level} {levelInfo.title}
               </p>
               {levelInfo.next && (
-                <p className="text-[9px] text-slate-400">
-                  次まであと{levelInfo.next - userStats.totalQuests}回
-                </p>
+                <p className="text-[9px] text-slate-400">次まであと{levelInfo.next - userStats.totalQuests}回</p>
               )}
               {!isGuest && (
                 <span className="flex items-center text-[9px] text-green-600 bg-green-50 px-2 py-1 rounded-md border border-green-100">
@@ -221,12 +417,10 @@ export default function ProfileScreen({ userProfile, userStats, isGuest, onEdit,
                 <Cloud size={20} className="mr-2" /> 記録を保存しませんか？
               </h3>
               <p className="text-xs text-blue-50 mb-4 leading-relaxed">
-                現在ゲストモードのため、アプリを閉じると記録が消えてしまいます。Googleアカウントでログインすると、記録をクラウドに保存できます。
+                現在ゲストモードのため、アプリを閉じると記録が消えてしまいます。
               </p>
-              <button
-                onClick={onGoogleLogin}
-                className="bg-white text-blue-600 text-sm font-bold py-2.5 px-4 rounded-xl shadow-sm hover:scale-[0.98] transition-transform flex items-center justify-center w-full"
-              >
+              <button onClick={onGoogleLogin}
+                className="bg-white text-blue-600 text-sm font-bold py-2.5 px-4 rounded-xl shadow-sm flex items-center justify-center w-full">
                 Googleでログインして保存する
               </button>
             </div>
@@ -262,10 +456,7 @@ export default function ProfileScreen({ userProfile, userStats, isGuest, onEdit,
               {userStats.badges.length}個
             </span>
           </span>
-          <ChevronDown
-            size={18}
-            className={`text-slate-400 transition-transform duration-200 ${badgesOpen ? 'rotate-180' : ''}`}
-          />
+          <ChevronDown size={18} className={`text-slate-400 transition-transform duration-200 ${badgesOpen ? 'rotate-180' : ''}`} />
         </button>
 
         {badgesOpen && (
@@ -278,11 +469,8 @@ export default function ProfileScreen({ userProfile, userStats, isGuest, onEdit,
             <div className="space-y-2 mb-2">
               <p className="text-[10px] text-slate-400 text-right pr-1">タップで証明書を表示</p>
               {userStats.badges.map(badge => (
-                <button
-                  key={badge.id}
-                  onClick={() => setSelectedBadge(badge)}
-                  className="w-full bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3 text-left active:scale-[0.98] transition-transform hover:border-cyan-200"
-                >
+                <button key={badge.id} onClick={() => setSelectedBadge(badge)}
+                  className="w-full bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3 text-left active:scale-[0.98] transition-transform hover:border-cyan-200">
                   <div className="w-10 h-10 bg-yellow-50 rounded-xl flex items-center justify-center shrink-0">
                     <Award size={20} className="text-yellow-500" />
                   </div>
@@ -291,16 +479,12 @@ export default function ProfileScreen({ userProfile, userStats, isGuest, onEdit,
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-[10px] text-slate-400">{badge.date}</span>
                       {badge.completedAt && (
-                        <span className="text-[10px] text-slate-400">
-                          {getTimeRange(badge.completedAt, badge.duration)}
-                        </span>
+                        <span className="text-[10px] text-slate-400">{getTimeRange(badge.completedAt, badge.duration)}</span>
                       )}
                     </div>
                   </div>
                   {badge.calories && (
-                    <span className="text-xs font-bold text-orange-500 shrink-0">
-                      {badge.calories}kcal
-                    </span>
+                    <span className="text-xs font-bold text-orange-500 shrink-0">{badge.calories}kcal</span>
                   )}
                 </button>
               ))}
@@ -313,35 +497,8 @@ export default function ProfileScreen({ userProfile, userStats, isGuest, onEdit,
           <CalendarDays size={18} className="mr-2 text-cyan-600" />
           アクティビティカレンダー
         </h3>
-        <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100">
-          <div className="flex justify-between items-center mb-4">
-            <span className="font-bold text-slate-700 text-sm">
-              {today.getFullYear()}年{today.getMonth() + 1}月の活動
-            </span>
-          </div>
-          <div className="grid grid-cols-7 gap-1 text-center mb-2">
-            {['日', '月', '火', '水', '木', '金', '土'].map(day => (
-              <div key={day} className="text-[10px] text-slate-400 font-bold">{day}</div>
-            ))}
-          </div>
-          <div className="grid grid-cols-7 gap-1 text-center">
-            {Array.from({ length: firstDay }).map((_, i) => <div key={`e-${i}`} />)}
-            {Array.from({ length: daysInMonth }).map((_, i) => {
-              const day = i + 1
-              const isToday = day === today.getDate()
-              const hasActivity = completedDays.has(day)
-              let bgClass = 'bg-slate-50 text-slate-600'
-              if (hasActivity) bgClass = 'bg-cyan-100 text-cyan-700 font-bold border border-cyan-300'
-              else if (isToday) bgClass = 'bg-white border-2 border-cyan-500 font-bold text-cyan-600 shadow-sm'
-              return (
-                <div key={day} className={`w-full aspect-square flex flex-col items-center justify-center rounded-lg transition-all ${bgClass}`}>
-                  <span className="text-[11px]">{day}</span>
-                  {hasActivity && <CheckCircle2 size={10} className="text-cyan-600 mt-0.5" />}
-                </div>
-              )
-            })}
-          </div>
-        </div>
+        <p className="text-[10px] text-slate-400 mb-3">日付をタップすると記録を確認できます</p>
+        <DiaryCalendar userId={userProfile.id} badges={userStats.badges} />
       </main>
     </div>
   )

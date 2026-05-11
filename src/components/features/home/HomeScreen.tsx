@@ -107,9 +107,10 @@ function ChallengeCard({ questCount }: { questCount: number }) {
   const { settings, dayNumber, isActive } = useChallengeSettings()
   if (!isActive) return null
 
+  const totalDays = settings.totalDays ?? 50
   const displayDay = settings.manualDay ?? dayNumber ?? 1
   const displayGarbage = settings.manualGarbageCount ?? Math.min(questCount, 20)
-  const dayPct = Math.min((displayDay / 50) * 100, 100)
+  const dayPct = Math.min((displayDay / totalDays) * 100, 100)
   const garbagePct = Math.min((displayGarbage / 20) * 100, 100)
   const weightDelta = settings.startWeight && settings.targetWeight
     ? (settings.startWeight - settings.targetWeight).toFixed(1)
@@ -120,7 +121,7 @@ function ChallengeCard({ questCount }: { questCount: number }) {
       <div className="flex items-center justify-between mb-3">
         <p className="text-xs font-bold text-white/80 uppercase tracking-wider">🌊 50日チャレンジ</p>
         <span className="text-[10px] bg-white/20 text-white px-2 py-0.5 rounded-full font-bold">
-          Day {displayDay} / 50
+          Day {displayDay} / {totalDays}
         </span>
       </div>
 
@@ -128,7 +129,7 @@ function ChallengeCard({ questCount }: { questCount: number }) {
         <div>
           <div className="flex justify-between text-[10px] text-blue-100 mb-1">
             <span>チャレンジ進捗</span>
-            <span>{displayDay} / 50日</span>
+            <span>{displayDay} / {totalDays}日</span>
           </div>
           <div className="h-2 bg-white/20 rounded-full overflow-hidden">
             <div className="h-full bg-white/80 rounded-full transition-all" style={{ width: `${dayPct}%` }} />
