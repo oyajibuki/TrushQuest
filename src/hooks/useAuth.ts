@@ -196,6 +196,19 @@ export function useAuth() {
         location,
         duration,
       })
+      // 運動ログに自動登録
+      const durationMins = (() => {
+        if (!duration) return 30
+        const m = duration.match(/(\d+)/)
+        return m ? parseInt(m[1]) : 30
+      })()
+      await supabase.from('exercise_logs').insert({
+        user_id: user.id,
+        date: now.toISOString().split('T')[0],
+        exercise_type: '海ゴミ拾い',
+        duration_minutes: durationMins,
+        notes: location || null,
+      })
     }
     return { success: true }
   }

@@ -79,11 +79,32 @@ export function useDiaryLogs(userId?: string) {
     await fetchAll()
   }
 
+  const updateMeal = async (id: string, date: string, meal_type: string, calories?: number, memo?: string, photo_url?: string): Promise<boolean> => {
+    if (!isSupabaseConfigured || !userId) return false
+    const { error } = await supabase.from('meal_logs').update({
+      date, meal_type,
+      calories: calories || null,
+      memo: memo || null,
+      photo_url: photo_url || null,
+    }).eq('id', id)
+    if (!error) await fetchAll()
+    return !error
+  }
+
+  const updateExercise = async (id: string, date: string, exercise_type: string, duration_minutes: number, notes?: string): Promise<boolean> => {
+    if (!isSupabaseConfigured || !userId) return false
+    const { error } = await supabase.from('exercise_logs').update({
+      date, exercise_type, duration_minutes, notes: notes || null,
+    }).eq('id', id)
+    if (!error) await fetchAll()
+    return !error
+  }
+
   return {
     weightLogs, mealLogs, exerciseLogs, loading,
     addWeight, deleteWeight,
-    addMeal, deleteMeal,
-    addExercise, deleteExercise,
+    addMeal, updateMeal, deleteMeal,
+    addExercise, updateExercise, deleteExercise,
     refetch: fetchAll,
   }
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { User, Cloud, Award, CalendarDays, Edit3, X, Flame, MapPin, Clock, Hash, ChevronDown, ChevronLeft, ChevronRight, Scale, Utensils, Dumbbell } from 'lucide-react'
+import { User, Cloud, Award, CalendarDays, Edit3, X, Flame, MapPin, Clock, Hash, ChevronDown, ChevronLeft, ChevronRight, Scale, Utensils, Dumbbell, Trash2 } from 'lucide-react'
 import { useDiaryLogs } from '@/hooks/useDiaryLogs'
 import type { UserProfile, UserStats, Badge, WeightLog, MealLog, ExerciseLog } from '@/types'
 
@@ -133,8 +133,10 @@ function CertModal({ badge, onClose }: { badge: Badge; onClose: () => void }) {
   )
 }
 
+const MEAL_ORDER = ['朝食', '昼食', '夕食', '間食']
+
 // --- 日記詳細ボトムシート ---
-function DayDetailSheet({ date, weightLogs, mealLogs, exerciseLogs, badges, onClose, onBadgeClick }: {
+function DayDetailSheet({ date, weightLogs, mealLogs, exerciseLogs, badges, onClose, onBadgeClick, onDeleteWeight, onDeleteMeal, onDeleteExercise }: {
   date: string
   weightLogs: WeightLog[]
   mealLogs: MealLog[]
@@ -142,6 +144,9 @@ function DayDetailSheet({ date, weightLogs, mealLogs, exerciseLogs, badges, onCl
   badges: Badge[]
   onClose: () => void
   onBadgeClick: (b: Badge) => void
+  onDeleteWeight: (id: string) => void
+  onDeleteMeal: (id: string) => void
+  onDeleteExercise: (id: string) => void
 }) {
   const dayWeights = weightLogs.filter(l => l.date === date)
   const dayMeals = mealLogs.filter(l => l.date === date)
@@ -151,6 +156,24 @@ function DayDetailSheet({ date, weightLogs, mealLogs, exerciseLogs, badges, onCl
 
   const dateObj = new Date(date + 'T00:00:00')
   const dateStr = dateObj.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' })
+
+  // 食事を朝食/昼食/夕食/間食の順にグループ化
+  const groupedMeals = MEAL_ORDER.map(type => ({
+    type,
+    items: dayMeals.filter(m => m.meal_type === type),
+  })).filter(g => g.items.length > 0)
+  // MEAL_ORDERに含まれないカスタム種類も末尾に追加
+  const otherMeals = dayMeals.filter(m => !MEAL_ORDER.includes(m.meal_type))
+
+  const handleDeleteWeight = async (id: string) => {
+    if (window.confirm('この体重記録を削除しますか？')) onDeleteWeight(id)
+  }
+  const handleDeleteMeal = async (id: string) => {
+    if (window.confirm('この食事記録を削除しますか？')) onDeleteMeal(id)
+  }
+  const handleDeleteExercise = async (id: string) => {
+    if (window.confirm('この運動記録を削除しますか？')) onDeleteExercise(id)
+  }
 
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
@@ -174,15 +197,18 @@ function DayDetailSheet({ date, weightLogs, mealLogs, exerciseLogs, badges, onCl
               {dayWeights.map(w => (
                 <div key={w.id} className="bg-slate-50 rounded-2xl overflow-hidden">
                   {w.photo_url && <img src={w.photo_url} alt="体型写真" className="w-full h-52 object-cover" />}
-                  <div className="p-3">
+                  <div className="p-3 flex items-center justify-between">
                     <p className="text-2xl font-black text-slate-800">{Number(w.weight_kg).toFixed(1)} <span className="text-sm font-medium text-slate-400">kg</span></p>
+                    <button onClick={() => handleDeleteWeight(w.id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                      <Trash2 size={15} />
+                    </button>
                   </div>
                 </div>
               ))}
             </section>
           )}
 
-          {dayMeals.length > 0 && (
+          {(groupedMeals.length > 0 || otherMeals.length > 0) && (
             <section>
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1">
@@ -192,19 +218,47 @@ function DayDetailSheet({ date, weightLogs, mealLogs, exerciseLogs, badges, onCl
                   {dayMeals.reduce((s, m) => s + (m.calories || 0), 0)} kcal
                 </span>
               </div>
-              <div className="space-y-2">
-                {dayMeals.map(m => (
-                  <div key={m.id} className="bg-slate-50 rounded-xl overflow-hidden">
-                    {m.photo_url && <img src={m.photo_url} alt="食事写真" className="w-full h-36 object-cover" />}
-                    <div className="p-2.5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-full font-bold">{m.meal_type}</span>
-                        {m.calories && <span className="text-[10px] text-orange-500 font-bold">{m.calories} kcal</span>}
-                      </div>
-                      {m.memo && <p className="text-xs text-slate-500 mt-1">{m.memo}</p>}
+              <div className="space-y-3">
+                {groupedMeals.map(group => (
+                  <div key={group.type}>
+                    <p className="text-[10px] font-bold text-slate-500 mb-1.5 pl-1">{group.type}</p>
+                    <div className="space-y-2">
+                      {group.items.map(m => (
+                        <div key={m.id} className="bg-slate-50 rounded-xl overflow-hidden">
+                          {m.photo_url && <img src={m.photo_url} alt="食事写真" className="w-full h-36 object-cover" />}
+                          <div className="p-2.5 flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              {m.calories && <span className="text-[10px] text-orange-500 font-bold">{m.calories} kcal</span>}
+                              {m.memo && <p className="text-xs text-slate-500 mt-0.5">{m.memo}</p>}
+                            </div>
+                            <button onClick={() => handleDeleteMeal(m.id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}
+                {otherMeals.length > 0 && (
+                  <div className="space-y-2">
+                    {otherMeals.map(m => (
+                      <div key={m.id} className="bg-slate-50 rounded-xl overflow-hidden">
+                        {m.photo_url && <img src={m.photo_url} alt="食事写真" className="w-full h-36 object-cover" />}
+                        <div className="p-2.5 flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[10px] bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-full font-bold">{m.meal_type}</span>
+                            {m.calories && <span className="text-[10px] text-orange-500 font-bold ml-2">{m.calories} kcal</span>}
+                            {m.memo && <p className="text-xs text-slate-500 mt-0.5">{m.memo}</p>}
+                          </div>
+                          <button onClick={() => handleDeleteMeal(m.id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </section>
           )}
@@ -219,7 +273,10 @@ function DayDetailSheet({ date, weightLogs, mealLogs, exerciseLogs, badges, onCl
                   <div key={e.id} className="bg-green-50 rounded-xl p-3 flex items-center gap-2">
                     <span className="text-[10px] bg-green-200 text-green-700 px-2 py-0.5 rounded-full font-bold shrink-0">{e.exercise_type}</span>
                     <span className="text-xs text-slate-600 font-bold">{e.duration_minutes}分</span>
-                    {e.notes && <span className="text-[10px] text-slate-400 truncate">{e.notes}</span>}
+                    {e.notes && <span className="text-[10px] text-slate-400 truncate flex-1">{e.notes}</span>}
+                    <button onClick={() => handleDeleteExercise(e.id)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-100 rounded-lg transition-colors shrink-0 ml-auto">
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 ))}
               </div>
@@ -253,11 +310,18 @@ function DayDetailSheet({ date, weightLogs, mealLogs, exerciseLogs, badges, onCl
 }
 
 // --- カレンダー ---
-function DiaryCalendar({ userId, badges }: { userId?: string; badges: Badge[] }) {
+function DiaryCalendar({ badges, weightLogs, mealLogs, exerciseLogs, onDeleteWeight, onDeleteMeal, onDeleteExercise }: {
+  badges: Badge[]
+  weightLogs: WeightLog[]
+  mealLogs: MealLog[]
+  exerciseLogs: ExerciseLog[]
+  onDeleteWeight: (id: string) => void
+  onDeleteMeal: (id: string) => void
+  onDeleteExercise: (id: string) => void
+}) {
   const [viewDate, setViewDate] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [certBadge, setCertBadge] = useState<Badge | null>(null)
-  const { weightLogs, mealLogs, exerciseLogs } = useDiaryLogs(userId)
 
   const year = viewDate.getFullYear()
   const month = viewDate.getMonth()
@@ -292,6 +356,9 @@ function DiaryCalendar({ userId, badges }: { userId?: string; badges: Badge[] })
           badges={badges}
           onClose={() => setSelectedDate(null)}
           onBadgeClick={b => { setSelectedDate(null); setCertBadge(b) }}
+          onDeleteWeight={onDeleteWeight}
+          onDeleteMeal={onDeleteMeal}
+          onDeleteExercise={onDeleteExercise}
         />
       )}
 
@@ -361,6 +428,8 @@ function DiaryCalendar({ userId, badges }: { userId?: string; badges: Badge[] })
 export default function ProfileScreen({ userProfile, userStats, isGuest, onEdit, onLogout, onGoogleLogin }: Props) {
   const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null)
   const [badgesOpen, setBadgesOpen] = useState(false)
+
+  const { weightLogs, mealLogs, exerciseLogs, deleteWeight, deleteMeal, deleteExercise } = useDiaryLogs(userProfile.id)
 
   const levelInfo = getLevelInfo(userStats.totalQuests)
 
@@ -498,7 +567,15 @@ export default function ProfileScreen({ userProfile, userStats, isGuest, onEdit,
           アクティビティカレンダー
         </h3>
         <p className="text-[10px] text-slate-400 mb-3">日付をタップすると記録を確認できます</p>
-        <DiaryCalendar userId={userProfile.id} badges={userStats.badges} />
+        <DiaryCalendar
+          badges={userStats.badges}
+          weightLogs={weightLogs}
+          mealLogs={mealLogs}
+          exerciseLogs={exerciseLogs}
+          onDeleteWeight={deleteWeight}
+          onDeleteMeal={deleteMeal}
+          onDeleteExercise={deleteExercise}
+        />
       </main>
     </div>
   )

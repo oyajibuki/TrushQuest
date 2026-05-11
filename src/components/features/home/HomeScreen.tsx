@@ -108,10 +108,11 @@ function ChallengeCard({ questCount }: { questCount: number }) {
   if (!isActive) return null
 
   const totalDays = settings.totalDays ?? 50
+  const garbageGoal = settings.garbageGoal ?? 20
   const displayDay = settings.manualDay ?? dayNumber ?? 1
-  const displayGarbage = settings.manualGarbageCount ?? Math.min(questCount, 20)
+  const displayGarbage = settings.manualGarbageCount ?? Math.min(questCount, garbageGoal)
   const dayPct = Math.min((displayDay / totalDays) * 100, 100)
-  const garbagePct = Math.min((displayGarbage / 20) * 100, 100)
+  const garbagePct = Math.min((displayGarbage / garbageGoal) * 100, 100)
   const weightDelta = settings.startWeight && settings.targetWeight
     ? (settings.startWeight - settings.targetWeight).toFixed(1)
     : null
@@ -139,7 +140,7 @@ function ChallengeCard({ questCount }: { questCount: number }) {
         <div>
           <div className="flex justify-between text-[10px] text-blue-100 mb-1">
             <span><Trash2 size={10} className="inline mr-0.5" />ゴミ拾い</span>
-            <span>{displayGarbage} / 20回</span>
+            <span>{displayGarbage} / {garbageGoal}回</span>
           </div>
           <div className="h-2 bg-white/20 rounded-full overflow-hidden">
             <div className="h-full bg-cyan-300 rounded-full transition-all" style={{ width: `${garbagePct}%` }} />
