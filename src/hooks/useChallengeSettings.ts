@@ -4,6 +4,8 @@ export interface ChallengeSettings {
   startDate: string | null
   targetWeight: number | null
   startWeight: number | null
+  manualDay: number | null
+  manualGarbageCount: number | null
 }
 
 const STORAGE_KEY = 'trashquest_challenge_v1'
@@ -11,7 +13,7 @@ const STORAGE_KEY = 'trashquest_challenge_v1'
 function load(): ChallengeSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : { startDate: null, targetWeight: null, startWeight: null }
+    return raw ? JSON.parse(raw) : { startDate: null, targetWeight: null, startWeight: null, manualDay: null, manualGarbageCount: null }
   } catch {
     return { startDate: null, targetWeight: null, startWeight: null }
   }

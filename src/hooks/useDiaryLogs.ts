@@ -31,10 +31,10 @@ export function useDiaryLogs(userId?: string) {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
-  const addWeight = async (date: string, weight_kg: number): Promise<boolean> => {
+  const addWeight = async (date: string, weight_kg: number, photo_url?: string): Promise<boolean> => {
     if (!isSupabaseConfigured || !userId) return false
     const { error } = await supabase.from('weight_logs')
-      .upsert({ user_id: userId, date, weight_kg }, { onConflict: 'user_id,date' })
+      .upsert({ user_id: userId, date, weight_kg, photo_url: photo_url || null }, { onConflict: 'user_id,date' })
     if (!error) await fetchAll()
     return !error
   }
@@ -45,12 +45,13 @@ export function useDiaryLogs(userId?: string) {
     await fetchAll()
   }
 
-  const addMeal = async (date: string, meal_type: string, calories?: number, memo?: string): Promise<boolean> => {
+  const addMeal = async (date: string, meal_type: string, calories?: number, memo?: string, photo_url?: string): Promise<boolean> => {
     if (!isSupabaseConfigured || !userId) return false
     const { error } = await supabase.from('meal_logs').insert({
       user_id: userId, date, meal_type,
       calories: calories || null,
       memo: memo || null,
+      photo_url: photo_url || null,
     })
     if (!error) await fetchAll()
     return !error

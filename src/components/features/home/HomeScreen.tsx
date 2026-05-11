@@ -105,11 +105,12 @@ function WeatherBanner({ weather, onRefresh }: { weather: WeatherState; onRefres
 
 function ChallengeCard({ questCount }: { questCount: number }) {
   const { settings, dayNumber, isActive } = useChallengeSettings()
-  if (!isActive || !dayNumber) return null
+  if (!isActive) return null
 
-  const garbageCount = Math.min(questCount, 20)
-  const garbagePct = (garbageCount / 20) * 100
-  const dayPct = (dayNumber / 50) * 100
+  const displayDay = settings.manualDay ?? dayNumber ?? 1
+  const displayGarbage = settings.manualGarbageCount ?? Math.min(questCount, 20)
+  const dayPct = Math.min((displayDay / 50) * 100, 100)
+  const garbagePct = Math.min((displayGarbage / 20) * 100, 100)
   const weightDelta = settings.startWeight && settings.targetWeight
     ? (settings.startWeight - settings.targetWeight).toFixed(1)
     : null
@@ -119,7 +120,7 @@ function ChallengeCard({ questCount }: { questCount: number }) {
       <div className="flex items-center justify-between mb-3">
         <p className="text-xs font-bold text-white/80 uppercase tracking-wider">🌊 50日チャレンジ</p>
         <span className="text-[10px] bg-white/20 text-white px-2 py-0.5 rounded-full font-bold">
-          Day {dayNumber} / 50
+          Day {displayDay} / 50
         </span>
       </div>
 
@@ -127,7 +128,7 @@ function ChallengeCard({ questCount }: { questCount: number }) {
         <div>
           <div className="flex justify-between text-[10px] text-blue-100 mb-1">
             <span>チャレンジ進捗</span>
-            <span>{dayNumber} / 50日</span>
+            <span>{displayDay} / 50日</span>
           </div>
           <div className="h-2 bg-white/20 rounded-full overflow-hidden">
             <div className="h-full bg-white/80 rounded-full transition-all" style={{ width: `${dayPct}%` }} />
@@ -137,7 +138,7 @@ function ChallengeCard({ questCount }: { questCount: number }) {
         <div>
           <div className="flex justify-between text-[10px] text-blue-100 mb-1">
             <span><Trash2 size={10} className="inline mr-0.5" />ゴミ拾い</span>
-            <span>{garbageCount} / 20回</span>
+            <span>{displayGarbage} / 20回</span>
           </div>
           <div className="h-2 bg-white/20 rounded-full overflow-hidden">
             <div className="h-full bg-cyan-300 rounded-full transition-all" style={{ width: `${garbagePct}%` }} />

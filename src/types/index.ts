@@ -96,6 +96,7 @@ export interface WeightLog {
   user_id: string
   date: string
   weight_kg: number
+  photo_url?: string
   created_at?: string
 }
 
@@ -106,6 +107,7 @@ export interface MealLog {
   meal_type: string
   calories?: number
   memo?: string
+  photo_url?: string
   created_at?: string
 }
 
