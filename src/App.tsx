@@ -12,6 +12,7 @@ import QuestReward from '@/components/features/quest/QuestReward'
 import ProfileScreen from '@/components/features/profile/ProfileScreen'
 import ProfileEdit from '@/components/features/profile/ProfileEdit'
 import AdminPanel from '@/components/features/admin/AdminPanel'
+import DiaryScreen from '@/components/features/diary/DiaryScreen'
 import BottomNav from '@/components/common/BottomNav'
 import type { Quest, View } from '@/types'
 
@@ -67,7 +68,7 @@ export default function App() {
     )
   }
 
-  const showBottomNav = ['home', 'profile', 'admin'].includes(currentView)
+  const showBottomNav = ['home', 'diary', 'profile', 'admin'].includes(currentView)
 
   return (
     <div className="max-w-md mx-auto bg-slate-900 min-h-screen relative shadow-2xl overflow-hidden font-sans selection:bg-cyan-200">
@@ -145,6 +146,13 @@ export default function App() {
             isGuest={auth.isGuest}
             onSave={auth.updateProfile}
             onBack={() => navigateTo('profile')}
+          />
+        )}
+
+        {currentView === 'diary' && (
+          <DiaryScreen
+            userProfile={auth.userProfile}
+            onBack={() => navigateTo('home')}
           />
         )}
 

@@ -91,6 +91,34 @@ export interface AppEvent {
   created_at?: string
 }
 
+export interface WeightLog {
+  id: string
+  user_id: string
+  date: string
+  weight_kg: number
+  created_at?: string
+}
+
+export interface MealLog {
+  id: string
+  user_id: string
+  date: string
+  meal_type: string
+  calories?: number
+  memo?: string
+  created_at?: string
+}
+
+export interface ExerciseLog {
+  id: string
+  user_id: string
+  date: string
+  exercise_type: string
+  duration_minutes: number
+  notes?: string
+  created_at?: string
+}
+
 export type View =
   | 'login'
   | 'home'
@@ -101,3 +129,4 @@ export type View =
   | 'profile'
   | 'profileEdit'
   | 'admin'
+  | 'diary'

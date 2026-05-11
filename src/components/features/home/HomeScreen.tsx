@@ -1,4 +1,5 @@
-import { MapPin, Clock, Flame, ChevronRight, Sun, Wind, Cloud, AlertOctagon, RefreshCw, CalendarDays } from 'lucide-react'
+import { MapPin, Clock, Flame, ChevronRight, Sun, Wind, Cloud, AlertOctagon, RefreshCw, CalendarDays, Trash2 } from 'lucide-react'
+import { useChallengeSettings } from '@/hooks/useChallengeSettings'
 import type { Quest, UserStats, WeatherState, AppEvent } from '@/types'
 
 interface Props {
@@ -102,6 +103,57 @@ function WeatherBanner({ weather, onRefresh }: { weather: WeatherState; onRefres
   )
 }
 
+function ChallengeCard({ questCount }: { questCount: number }) {
+  const { settings, dayNumber, isActive } = useChallengeSettings()
+  if (!isActive || !dayNumber) return null
+
+  const garbageCount = Math.min(questCount, 20)
+  const garbagePct = (garbageCount / 20) * 100
+  const dayPct = (dayNumber / 50) * 100
+  const weightDelta = settings.startWeight && settings.targetWeight
+    ? (settings.startWeight - settings.targetWeight).toFixed(1)
+    : null
+
+  return (
+    <div className="mb-4 bg-white/15 border border-white/25 rounded-2xl p-4 backdrop-blur-sm">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-bold text-white/80 uppercase tracking-wider">🌊 50日チャレンジ</p>
+        <span className="text-[10px] bg-white/20 text-white px-2 py-0.5 rounded-full font-bold">
+          Day {dayNumber} / 50
+        </span>
+      </div>
+
+      <div className="space-y-2.5">
+        <div>
+          <div className="flex justify-between text-[10px] text-blue-100 mb-1">
+            <span>チャレンジ進捗</span>
+            <span>{dayNumber} / 50日</span>
+          </div>
+          <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+            <div className="h-full bg-white/80 rounded-full transition-all" style={{ width: `${dayPct}%` }} />
+          </div>
+        </div>
+
+        <div>
+          <div className="flex justify-between text-[10px] text-blue-100 mb-1">
+            <span><Trash2 size={10} className="inline mr-0.5" />ゴミ拾い</span>
+            <span>{garbageCount} / 20回</span>
+          </div>
+          <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+            <div className="h-full bg-cyan-300 rounded-full transition-all" style={{ width: `${garbagePct}%` }} />
+          </div>
+        </div>
+      </div>
+
+      {weightDelta && (
+        <p className="text-[10px] text-blue-100 mt-2 text-right">
+          目標減量: <span className="font-bold text-white">-{weightDelta} kg</span>
+        </p>
+      )}
+    </div>
+  )
+}
+
 export default function HomeScreen({ quests, weather, userStats, events, onQuestSelect, onWeatherRefresh }: Props) {
   const isCancelled = weather.status === 'rain' || weather.status === 'typhoon'
 
@@ -113,6 +165,7 @@ export default function HomeScreen({ quests, weather, userStats, events, onQuest
         </div>
         <p className="text-blue-50 text-sm font-medium mb-4">地球を綺麗にしながら、自分も健康に。</p>
 
+        <ChallengeCard questCount={userStats.totalQuests} />
         <WeatherBanner weather={weather} onRefresh={onWeatherRefresh} />
         <EventsBanner events={events} />
 
