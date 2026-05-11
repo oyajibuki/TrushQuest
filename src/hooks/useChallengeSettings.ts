@@ -44,32 +44,42 @@ function rowToSettings(row: Record<string, unknown>): ChallengeSettings {
 
 export function useChallengeSettings() {
   const [settings, setSettings] = useState<ChallengeSettings>(loadLocal)
+  // Supabase設定済みの場合は取得完了まで loading=true にする
+  // （iPhoneなど他デバイスでlocalStorageが空でも正しく判定できる）
+  const [loading, setLoading] = useState(isSupabaseConfigured)
 
   useEffect(() => {
     if (!isSupabaseConfigured) return
 
-    const fetchSettings = async (userId: string) => {
-      const { data: row } = await supabase
-        .from('challenge_settings')
-        .select('*')
-        .eq('user_id', userId)
-        .single()
-      if (row) {
-        const mapped = rowToSettings(row as Record<string, unknown>)
-        setSettings(mapped)
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped))
-      }
+    const fetchFromDB = async (userId: string) => {
+      try {
+        const { data: row } = await supabase
+          .from('challenge_settings')
+          .select('*')
+          .eq('user_id', userId)
+          .single()
+        if (row) {
+          const mapped = rowToSettings(row as Record<string, unknown>)
+          setSettings(mapped)
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped))
+        }
+      } catch { /* ignore */ }
+      setLoading(false)
     }
 
     // 既存セッションをストレージから即時取得（他デバイス対応）
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) fetchSettings(session.user.id)
+      if (session?.user) {
+        fetchFromDB(session.user.id)
+      } else {
+        setLoading(false)  // 未ログイン → ローカルデータをそのまま使う
+      }
     })
 
     // ログイン/ログアウト時の変更を監視
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        fetchSettings(session.user.id)
+        fetchFromDB(session.user.id)
       } else {
         setSettings(loadLocal())
       }
@@ -106,5 +116,5 @@ export function useChallengeSettings() {
 
   const isActive = !!settings.startDate && dayNumber !== null && dayNumber <= (settings.totalDays ?? Infinity)
 
-  return { settings, updateSettings, dayNumber, isActive }
+  return { settings, updateSettings, dayNumber, isActive, loading }
 }

@@ -290,6 +290,102 @@ function WeightTab({ logs, onAdd, onDelete, userId }: {
 const MEAL_TYPES = ['朝食', '昼食', '夕食', '間食']
 const CALORIE_PRESETS = [300, 500, 700, 1000]
 
+const CALORIE_GUIDE = [
+  { cat: '🍚 主食', items: [
+    { name: 'おにぎり（塩）', cal: 170 },
+    { name: 'おにぎり（具あり）', cal: 210 },
+    { name: 'ご飯 茶碗1杯', cal: 250 },
+    { name: '食パン 1枚', cal: 160 },
+    { name: 'うどん', cal: 300 },
+    { name: 'ざるそば', cal: 360 },
+    { name: 'ラーメン', cal: 500 },
+    { name: 'チャーハン', cal: 650 },
+    { name: 'カレーライス', cal: 700 },
+  ]},
+  { cat: '🍖 おかず・タンパク質', items: [
+    { name: '卵 1個', cal: 80 },
+    { name: '豆腐 半丁', cal: 100 },
+    { name: '鶏むね肉 100g', cal: 130 },
+    { name: '刺身盛り合わせ', cal: 200 },
+    { name: '焼き魚（さんま）', cal: 250 },
+    { name: '豚肉 100g', cal: 260 },
+    { name: '牛肉 100g', cal: 300 },
+    { name: '唐揚げ 3個', cal: 300 },
+    { name: 'ハンバーグ', cal: 380 },
+  ]},
+  { cat: '🍱 外食・コンビニ', items: [
+    { name: 'サンドイッチ', cal: 350 },
+    { name: 'ざるそば定食', cal: 500 },
+    { name: '定食（焼き魚）', cal: 600 },
+    { name: '牛丼（並）', cal: 650 },
+    { name: 'コンビニ弁当', cal: 700 },
+    { name: 'ハンバーガー', cal: 450 },
+    { name: 'カップ麺', cal: 350 },
+  ]},
+  { cat: '🍎 間食・スイーツ', items: [
+    { name: 'バナナ 1本', cal: 90 },
+    { name: 'みかん 1個', cal: 50 },
+    { name: 'りんご 1個', cal: 140 },
+    { name: 'アイスクリーム', cal: 200 },
+    { name: 'チョコレート 板1枚', cal: 250 },
+    { name: 'ポテトチップス 1袋', cal: 350 },
+    { name: 'プロテイン 1杯', cal: 150 },
+  ]},
+  { cat: '☕ 飲み物', items: [
+    { name: 'コーヒー（ブラック）', cal: 5 },
+    { name: 'スポーツドリンク', cal: 100 },
+    { name: '牛乳 200ml', cal: 130 },
+    { name: 'カフェラテ', cal: 150 },
+    { name: 'ビール 350ml', cal: 150 },
+    { name: 'コーラ 500ml', cal: 225 },
+  ]},
+]
+
+function CalorieGuide({ onSelect }: { onSelect: (cal: number) => void }) {
+  const [open, setOpen] = useState(false)
+  const [openCat, setOpenCat] = useState<string | null>('🍚 主食')
+  return (
+    <div className="mt-2">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 hover:text-cyan-500 transition-colors"
+      >
+        <span>{open ? '▲' : '▼'}</span>
+        <span>📖 カロリー目安表（タップで入力）</span>
+      </button>
+      {open && (
+        <div className="mt-2 bg-slate-50 rounded-xl overflow-hidden border border-slate-200">
+          {CALORIE_GUIDE.map(group => (
+            <div key={group.cat}>
+              <button
+                onClick={() => setOpenCat(openCat === group.cat ? null : group.cat)}
+                className="w-full flex items-center justify-between px-3 py-2 bg-slate-100 text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors"
+              >
+                <span>{group.cat}</span>
+                <span className="text-slate-400">{openCat === group.cat ? '▲' : '▼'}</span>
+              </button>
+              {openCat === group.cat && (
+                <div className="divide-y divide-slate-100">
+                  {group.items.map(item => (
+                    <button
+                      key={item.name}
+                      onClick={() => { onSelect(item.cal); setOpen(false) }}
+                      className="w-full flex items-center justify-between px-3 py-2 hover:bg-cyan-50 transition-colors text-left"
+                    >
+                      <span className="text-xs text-slate-700">{item.name}</span>
+                      <span className="text-xs font-bold text-orange-500 shrink-0 ml-2">{item.cal} kcal</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function MealTab({ logs, onAdd, onUpdate, onDelete, userId }: {
   logs: MealLog[]
   onAdd: (date: string, type: string, cal?: number, memo?: string, photoUrl?: string) => Promise<boolean>
@@ -385,6 +481,7 @@ function MealTab({ logs, onAdd, onUpdate, onDelete, userId }: {
           <input type="number" value={calories} onChange={e => setCalories(e.target.value)}
             placeholder="カロリーを直接入力"
             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400" />
+          <CalorieGuide onSelect={cal => setCalories(String(cal))} />
         </div>
 
         <div>

@@ -238,11 +238,18 @@ function DayDetailSheet({ date, weightLogs, mealLogs, exerciseLogs, badges, body
                     </div>
                     {group.items.map(m => (
                       <div key={m.id} className="bg-white">
-                        {m.photo_url && <img src={m.photo_url} alt="食事写真" className="w-full h-32 object-cover" />}
+                        {m.photo_url && (
+                          <img src={m.photo_url} alt="食事写真" className="w-full h-32 object-cover"
+                            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                        )}
                         <div className="px-4 py-2.5 flex items-start justify-between">
                           <div className="flex-1">
-                            {m.memo && <p className="text-xs text-slate-600">{m.memo}</p>}
-                            {!m.memo && !m.calories && <p className="text-xs text-slate-400">記録あり</p>}
+                            {m.calories && m.calories > 0 && (
+                              <span className="text-xs font-bold text-orange-500">{m.calories} kcal</span>
+                            )}
+                            {m.memo && <p className="text-xs text-slate-600 mt-0.5">{m.memo}</p>}
+                            {!m.memo && !m.calories && m.photo_url && <p className="text-[10px] text-slate-400">📷 写真あり</p>}
+                            {!m.memo && !m.calories && !m.photo_url && <p className="text-[10px] text-slate-300">—</p>}
                           </div>
                           <button onClick={() => handleDeleteMeal(m.id)} className="p-1.5 text-red-300 hover:text-red-500 rounded-lg transition-colors shrink-0 ml-2">
                             <Trash2 size={13} />
@@ -254,12 +261,16 @@ function DayDetailSheet({ date, weightLogs, mealLogs, exerciseLogs, badges, body
                 ))}
                 {otherMeals.map(m => (
                   <div key={m.id} className="bg-white">
-                    {m.photo_url && <img src={m.photo_url} alt="食事写真" className="w-full h-32 object-cover" />}
+                    {m.photo_url && (
+                      <img src={m.photo_url} alt="食事写真" className="w-full h-32 object-cover"
+                        onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                    )}
                     <div className="px-4 py-2.5 flex items-start justify-between">
                       <div className="flex-1">
                         <span className="text-[10px] bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-full font-bold mr-2">{m.meal_type}</span>
                         {m.calories && <span className="text-[10px] text-orange-500 font-bold">{m.calories} kcal</span>}
                         {m.memo && <p className="text-xs text-slate-500 mt-0.5">{m.memo}</p>}
+                        {!m.memo && !m.calories && m.photo_url && <p className="text-[10px] text-slate-400 mt-0.5">📷 写真あり</p>}
                       </div>
                       <button onClick={() => handleDeleteMeal(m.id)} className="p-1.5 text-red-300 hover:text-red-500 rounded-lg transition-colors shrink-0 ml-2">
                         <Trash2 size={13} />

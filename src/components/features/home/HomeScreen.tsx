@@ -104,7 +104,9 @@ function WeatherBanner({ weather, onRefresh }: { weather: WeatherState; onRefres
 }
 
 function ChallengeCard({ questCount }: { questCount: number }) {
-  const { settings, dayNumber, isActive } = useChallengeSettings()
+  const { settings, dayNumber, isActive, loading } = useChallengeSettings()
+  // Supabaseからの取得完了前は表示しない（iPhoneなど他デバイスでの誤非表示を防ぐ）
+  if (loading) return null
   if (!isActive) return null
 
   const totalDays = settings.totalDays ?? 50
